@@ -7,8 +7,8 @@ import { ExtensionState } from './extensionState';
 import { Logger } from './logger';
 import { RepoFileWatcher } from './repoFileWatcher';
 import { RepoManager } from './repoManager';
-import { ErrorInfo, GitConfigLocation, GitGraphViewInitialState, GitPushBranchMode, GitRepoSet, LoadGitGraphViewTo, RequestMessage, ResponseMessage, TabIconColourTheme } from './types';
-import { UNABLE_TO_FIND_GIT_MSG, UNCOMMITTED, archive, copyFilePathToClipboard, copyToClipboard, createPullRequest, getNonce, openExtensionSettings, openExternalUrl, openFile, showErrorMessage, viewDiff, viewDiffWithWorkingFile, viewFileAtRevision, viewScm } from './utils';
+import { ErrorInfo, GitConfigLocation, GitGraphViewInitialState, GitPushBranchMode, GitRepoSet, LoadGitGraphViewTo, RequestMessage, RequestToolbarState, ResponseMessage, TabIconColourTheme, ToolbarAction } from './types';
+import { UNABLE_TO_FIND_GIT_MSG, UNCOMMITTED, archive, copyFilePathToClipboard, copyToClipboard, createPullRequest, getNonce, getRepoName, openExtensionSettings, openExternalUrl, openFile, showErrorMessage, viewDiff, viewDiffWithWorkingFile, viewFileAtRevision, viewScm } from './utils';
 import { Disposable, toDisposable } from './utils/disposable';
 
 /**
@@ -28,6 +28,7 @@ export class GitGraphView extends Disposable {
 	private isGraphViewLoaded: boolean = false;
 	private isPanelVisible: boolean = true;
 	private currentRepo: string | null = null;
+	private titleRepo: string | null = null;
 	private loadViewTo: LoadGitGraphViewTo = null; // Is used by the next call to getHtmlForWebview, and is then reset to null
 
 	private loadRepoInfoRefreshId: number = 0;
@@ -103,6 +104,7 @@ export class GitGraphView extends Disposable {
 			// Dispose Git Graph View resources when disposed
 			toDisposable(() => {
 				GitGraphView.currentPanel = undefined;
+				this.resetToolbarState();
 				this.repoFileWatcher.stop();
 			}),
 
@@ -124,6 +126,7 @@ export class GitGraphView extends Disposable {
 
 			// Subscribe to events triggered when a repository is added or deleted from Git Graph
 			repoManager.onDidChangeRepos((event) => {
+				this.updateTitle();
 				if (!this.panel.visible) return;
 				const loadViewTo = event.loadRepo !== null ? { repo: event.loadRepo } : null;
 				if ((event.numRepos === 0 && this.isGraphViewLoaded) || (event.numRepos > 0 && !this.isGraphViewLoaded)) {
@@ -168,6 +171,18 @@ export class GitGraphView extends Disposable {
 	 * @param msg The message that was received.
 	 */
 	private async respondToMessage(msg: RequestMessage) {
+		if (this.isDisposed()) return;
+		if (msg.command === 'toolbarState') {
+			this.setToolbarState(msg);
+			return;
+		}
+		if (msg.command === 'selectRepository') {
+			const repos = this.repoManager.getRepos();
+			if (this.panel.visible && typeof repos[msg.repo] !== 'undefined') {
+				this.respondLoadRepos(repos, { repo: msg.repo });
+			}
+			return;
+		}
 		this.repoFileWatcher.mute();
 		let errorInfos: ErrorInfo[];
 
@@ -423,6 +438,7 @@ export class GitGraphView extends Disposable {
 				});
 				break;
 			case 'loadRepoInfo':
+				this.updateTitle(msg.repo);
 				this.loadRepoInfoRefreshId = msg.refreshId;
 				let repoInfo = await this.dataSource.getRepoInfo(msg.repo, msg.showRemoteBranches, msg.showStashes, msg.hideRemotes), isRepo = true;
 				if (repoInfo.error) {
@@ -571,6 +587,7 @@ export class GitGraphView extends Disposable {
 				break;
 			case 'setRepoState':
 				this.repoManager.setRepoState(msg.repo, msg.state);
+				if (msg.repo === this.titleRepo) this.updateTitle();
 				break;
 			case 'setWorkspaceViewState':
 				this.sendMessage({
@@ -632,6 +649,56 @@ export class GitGraphView extends Disposable {
 		this.repoFileWatcher.unmute();
 	}
 
+	/** Keep the editor title in sync with the selected repository and its display name. */
+	private updateTitle(repo: string | null = this.titleRepo) {
+		if (this.isDisposed()) return;
+		this.titleRepo = repo;
+		const repos = this.repoManager.getRepos();
+		this.panel.title = repo !== null && repos[repo] !== undefined
+			? 'Git (' + (repos[repo].name || getRepoName(repo)) + ')'
+			: 'Git Graph';
+	}
+
+	/** Select one of the repositories already discovered by Git Graph. */
+	public selectRepository() {
+		if (this.isDisposed() || !this.panel.visible) return;
+		const repos = this.repoManager.getRepos();
+		const folders = vscode.workspace.workspaceFolders || [];
+		const relativePaths: { [repo: string]: string } = {};
+		for (const repo of Object.keys(repos)) {
+			const folder = folders[repos[repo].workspaceFolderIndex ?? 0] || folders[0];
+			const base = folder ? folder.uri.fsPath : this.currentRepo || path.dirname(repo);
+			const relative = path.relative(base, repo).replace(/\\/g, '/') || '.';
+			relativePaths[repo] = folder && folders.length > 1
+				? folder.name + (relative === '.' ? '' : '/' + relative)
+				: relative;
+		}
+		this.sendMessage({ command: 'selectRepository', repos: repos, relativePaths: relativePaths });
+	}
+
+	/** Run a title bar action in the currently displayed repository. */
+	public runToolbarAction(action: ToolbarAction) {
+		if (!this.isDisposed() && this.panel.visible && this.isGraphViewLoaded) {
+			this.sendMessage({ command: 'toolbarAction', action: action });
+		}
+	}
+
+	private setToolbarState(state: RequestToolbarState) {
+		for (const [key, value] of Object.entries({
+			'git-graph:toolbarReady': state.ready,
+			'git-graph:hasRemotes': state.hasRemotes,
+			'git-graph:refreshing': state.refreshing
+		})) {
+			vscode.commands.executeCommand('setContext', key, value).then(undefined, () => {
+				this.logger.logError('Unable to update Git Graph toolbar context: ' + key);
+			});
+		}
+	}
+
+	private resetToolbarState() {
+		this.setToolbarState({ command: 'toolbarState', ready: false, hasRemotes: false, refreshing: false });
+	}
+
 	/**
 	 * Send a message to the front-end.
 	 * @param msg The message to be sent.
@@ -657,6 +724,8 @@ export class GitGraphView extends Disposable {
 	 * Update the HTML document loaded in the Webview.
 	 */
 	private update() {
+		this.updateTitle(this.loadViewTo !== null ? this.loadViewTo.repo : this.titleRepo);
+		this.resetToolbarState();
 		this.panel.webview.html = this.getHtmlForWebview();
 	}
 
@@ -720,16 +789,6 @@ export class GitGraphView extends Disposable {
 		} else if (numRepos > 0) {
 			body = `<body>
 			<div id="view" tabindex="-1">
-				<div id="controls">
-					<span id="repoControl"><span class="unselectable">Repo: </span><div id="repoDropdown" class="dropdown"></div></span>
-					<span id="branchControl"><span class="unselectable">Branches: </span><div id="branchDropdown" class="dropdown"></div></span>
-					<label id="showRemoteBranchesControl"><input type="checkbox" id="showRemoteBranchesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Remote Branches</label>
-					<div id="findBtn" title="Find"></div>
-					<div id="terminalBtn" title="Open a Terminal for this Repository"></div>
-					<div id="settingsBtn" title="Repository Settings"></div>
-					<div id="fetchBtn"></div>
-					<div id="refreshBtn"></div>
-				</div>
 				<div id="content">
 					<div id="commitGraph"></div>
 					<div id="commitTable"></div>
@@ -805,6 +864,7 @@ export class GitGraphView extends Disposable {
 	 * @param loadViewTo What to load the view to.
 	 */
 	private respondLoadRepos(repos: GitRepoSet, loadViewTo: LoadGitGraphViewTo) {
+		this.updateTitle(loadViewTo !== null ? loadViewTo.repo : this.titleRepo);
 		this.sendMessage({
 			command: 'loadRepos',
 			repos: repos,

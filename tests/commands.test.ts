@@ -73,7 +73,7 @@ describe('CommandManager', () => {
 
 	it('Should construct a CommandManager, and be disposed', () => {
 		// Assert
-		expect(commandManager['disposables']).toHaveLength(11);
+		expect(commandManager['disposables']).toHaveLength(15);
 		expect(commandManager['gitExecutable']).toStrictEqual({
 			path: '/path/to/git',
 			version: '2.25.0'
@@ -174,7 +174,36 @@ describe('CommandManager', () => {
 		});
 	});
 
+	it('Routes title actions to the open panel without opening a repository picker', () => {
+		const panel = Object.create(GitGraphView.prototype);
+		panel.runToolbarAction = jest.fn();
+		GitGraphView.currentPanel = panel;
+		try {
+			vscode.commands.executeCommand('git-graph.repositorySettings');
+			vscode.commands.executeCommand('git-graph.fetchInView');
+			vscode.commands.executeCommand('git-graph.refresh');
+			expect(panel.runToolbarAction.mock.calls).toEqual([['settings'], ['fetch'], ['refresh']]);
+			expect(spyOnGitGraphViewCreateOrShow).not.toHaveBeenCalled();
+			GitGraphView.currentPanel = undefined;
+			expect(() => vscode.commands.executeCommand('git-graph.refresh')).not.toThrow();
+		} finally {
+			GitGraphView.currentPanel = undefined;
+		}
+	});
+
 	describe('git-graph.view', () => {
+		it('Does not reopen a view with disposed services after an asynchronous lookup', async () => {
+			let resolveRepo!: (repo: string) => void;
+			spyOnGetKnownRepo.mockImplementationOnce(() => new Promise<string>(resolve => { resolveRepo = resolve; }));
+			const opening = vscode.commands.executeCommand('git-graph.view', { rootUri: vscode.Uri.file('/repo') });
+
+			commandManager.dispose();
+			resolveRepo('/repo');
+			await opening;
+
+			expect(spyOnGitGraphViewCreateOrShow).not.toHaveBeenCalled();
+		});
+
 		it('Should open the Git Graph View', async () => {
 			// Setup
 			vscode.mockExtensionSettingReturnValue('openToTheRepoOfTheActiveTextEditorDocument', false);

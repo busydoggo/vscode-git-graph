@@ -75,6 +75,7 @@ export class RepoManager extends Disposable {
 				if (e.added.length > 0) {
 					const directories = e.added.map(folder => getPathFromUri(folder.uri));
 					if (await this.searchDirectoriesForRepos(directories, this.maxDepthOfRepoSearch, true)) changes = true;
+					if (this.isDisposed()) return;
 					for (const directory of directories) {
 						this.startWatchingFolder(directory);
 					}
@@ -160,9 +161,12 @@ export class RepoManager extends Disposable {
 			// On startup, ensure that sendRepo is called (even if no changes were made)
 			this.sendRepos();
 		}
+		if (this.isDisposed()) return;
 		this.checkReposForNewConfig();
 		await this.checkReposForNewSubmodules();
+		if (this.isDisposed()) return;
 		await this.searchWorkspaceForRepos();
+		if (this.isDisposed()) return;
 		this.startWatchingFolders();
 	}
 
@@ -188,6 +192,10 @@ export class RepoManager extends Disposable {
 	public registerRepo(path: string, loadRepo: boolean) {
 		return new Promise<{ root: string | null, error: string | null }>(async resolve => {
 			let root = await this.dataSource.repoRoot(path);
+			if (this.isDisposed()) {
+				resolve({ root: null, error: 'Git Graph was stopped while registering the repository.' });
+				return;
+			}
 			if (root === null) {
 				resolve({ root: null, error: 'The folder "' + path + '" is not a Git repository.' });
 			} else if (typeof this.repos[root] !== 'undefined') {
@@ -305,7 +313,7 @@ export class RepoManager extends Disposable {
 	 * @returns TRUE => The repository was added, FALSE => The repository is ignored and couldn't be added.
 	 */
 	private async addRepo(repo: string) {
-		if (this.ignoredRepos.includes(repo)) {
+		if (this.isDisposed() || this.ignoredRepos.includes(repo)) {
 			return false;
 		} else {
 			this.repos[repo] = Object.assign({}, DEFAULT_REPO_STATE);
@@ -362,6 +370,7 @@ export class RepoManager extends Disposable {
 	 * @param loadRepo The optional path of a repository to load in the Git Graph View.
 	 */
 	private sendRepos(loadRepo: string | null = null) {
+		if (this.isDisposed()) return;
 		this.repoEventEmitter.emit({
 			repos: this.getRepos(),
 			numRepos: this.getNumRepos(),
@@ -375,7 +384,8 @@ export class RepoManager extends Disposable {
 	 */
 	public checkReposExist() {
 		let repoPaths = Object.keys(this.repos), changes = false;
-		return evalPromises(repoPaths, 3, (path) => this.dataSource.repoRoot(path)).then((results) => {
+		return evalPromises(repoPaths, 3, (path) => this.isDisposed() ? Promise.resolve(null) : this.dataSource.repoRoot(path)).then((results) => {
+			if (this.isDisposed()) return;
 			for (let i = 0; i < repoPaths.length; i++) {
 				if (results[i] === null) {
 					this.removeRepo(repoPaths[i]);
@@ -456,6 +466,7 @@ export class RepoManager extends Disposable {
 	 * @returns TRUE => At least one repository was added, FALSE => No repositories were added.
 	 */
 	public async searchWorkspaceForRepos() {
+		if (this.isDisposed()) return false;
 		this.logger.log('Searching workspace for new repos ...');
 		let rootFolders = vscode.workspace.workspaceFolders, changes = false;
 		if (typeof rootFolders !== 'undefined') {
@@ -464,6 +475,7 @@ export class RepoManager extends Disposable {
 			);
 		}
 
+		if (this.isDisposed()) return false;
 		this.logger.log('Completed searching workspace for new repos');
 		if (changes) this.sendRepos();
 		return changes;
@@ -491,6 +503,7 @@ export class RepoManager extends Disposable {
 			const isWorkspaceRoot = workspaceRoots && depth === 0;
 			// Keep probes serial to avoid creating too many file watchers at once.
 			for (const directory of currentLevel) {
+				if (this.isDisposed()) return false;
 				if (!isWorkspaceRoot && this.shouldSkipDirectory(path.basename(directory))) {
 					continue;
 				}
@@ -499,6 +512,7 @@ export class RepoManager extends Disposable {
 				const dirContents = depth < maxDepth
 					? await vscode.workspace.fs.readDirectory(vscode.Uri.file(directory)).then(entries => entries, () => null)
 					: null;
+				if (this.isDisposed()) return false;
 
 				if (isWorkspaceRoot || !this.isDirectoryWithinRepos(directory)) {
 					// Descendants require .git metadata before spawning Git. Files support
@@ -511,9 +525,11 @@ export class RepoManager extends Disposable {
 							() => false
 						));
 
+					if (this.isDisposed()) return false;
 					if (hasGitMetadata) {
 						try {
 							const root = await this.dataSource.repoRoot(directory);
+							if (this.isDisposed()) return false;
 							if (root !== null && !this.isDirectoryWithinRepos(root) && await this.addRepo(root)) {
 								foundAny = true;
 							}
@@ -555,7 +571,9 @@ export class RepoManager extends Disposable {
 	 * @returns TRUE => At least one submodule was added, FALSE => No submodules were added.
 	 */
 	private async searchRepoForSubmodules(repo: string) {
+		if (this.isDisposed()) return false;
 		let submodules = await this.dataSource.getSubmodules(repo), changes = false;
+		if (this.isDisposed()) return false;
 		for (let i = 0; i < submodules.length; i++) {
 			if (!this.isKnownRepo(submodules[i])) {
 				if (await this.addRepo(submodules[i])) changes = true;
@@ -584,6 +602,7 @@ export class RepoManager extends Disposable {
 	 * @param path The path of the directory.
 	 */
 	private startWatchingFolder(path: string) {
+		if (this.isDisposed()) return;
 		const watcher = vscode.workspace.createFileSystemWatcher(path + '/**');
 		watcher.onDidCreate(this.onWatcherCreate.bind(this));
 		watcher.onDidChange(this.onWatcherChange.bind(this));
@@ -653,7 +672,7 @@ export class RepoManager extends Disposable {
 	 * @returns TRUE => Change was made. FALSE => No change was made.
 	 */
 	private async processOnWatcherChangeEvent(path: string) {
-		if (!await doesPathExist(path)) {
+		if (!await doesPathExist(path) && !this.isDisposed()) {
 			if (this.removeReposWithinFolder(path)) {
 				return true;
 			}
@@ -677,14 +696,16 @@ export class RepoManager extends Disposable {
 	 * @param isRepoNew Is the repository new (was it just added)
 	 */
 	private async checkRepoForNewConfig(repo: string, isRepoNew: boolean = false) {
+		if (this.isDisposed()) return false;
 		try {
 			const file = await readExternalConfigFile(repo);
+			if (this.isDisposed()) return false;
 			const state = this.repos[repo];
 			if (state && file !== null && typeof file.exportedAt === 'number' && file.exportedAt > state.lastImportAt) {
 				const validationError = validateExternalConfigFile(file);
 				if (validationError === null) {
 					const action = isRepoNew ? 'Yes' : await vscode.window.showInformationMessage('A newer Git Graph Repository Configuration File has been detected for the repository "' + (state.name || getRepoName(repo)) + '". Would you like to override your current repository configuration with the new changes?', 'Yes', 'No');
-					if (this.isKnownRepo(repo) && action) {
+					if (!this.isDisposed() && this.isKnownRepo(repo) && action) {
 						const state = this.repos[repo];
 						if (action === 'Yes') {
 							applyExternalConfigFile(file, state);

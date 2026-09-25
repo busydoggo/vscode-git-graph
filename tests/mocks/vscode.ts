@@ -177,6 +177,8 @@ export enum FileType {
 }
 
 export const workspace = {
+	registerTextDocumentContentProvider: jest.fn(() => ({ dispose: jest.fn() })),
+	onDidChangeConfiguration: jest.fn((_: (event: vscode.ConfigurationChangeEvent) => void) => ({ dispose: jest.fn() })),
 	fs: {
 		readDirectory: jest.fn<Promise<[string, FileType][]>, [Uri]>(),
 		stat: jest.fn<Promise<vscode.FileStat>, [Uri]>()

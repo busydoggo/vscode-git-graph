@@ -1102,6 +1102,30 @@ export interface ResponseRebase extends ResponseWithErrorInfo {
 	readonly interactive: boolean;
 }
 
+export interface RequestSelectRepository extends RepoRequest {
+	readonly command: 'selectRepository';
+}
+
+export interface ResponseSelectRepository extends BaseMessage {
+	readonly command: 'selectRepository';
+	readonly repos: GitRepoSet;
+	readonly relativePaths: { [repo: string]: string };
+}
+
+export type ToolbarAction = 'settings' | 'fetch' | 'refresh';
+
+export interface ResponseToolbarAction extends BaseMessage {
+	readonly command: 'toolbarAction';
+	readonly action: ToolbarAction;
+}
+
+export interface RequestToolbarState extends BaseMessage {
+	readonly command: 'toolbarState';
+	readonly ready: boolean;
+	readonly hasRemotes: boolean;
+	readonly refreshing: boolean;
+}
+
 export interface ResponseRefresh extends BaseMessage {
 	readonly command: 'refresh';
 }
@@ -1248,7 +1272,9 @@ export interface ResponseViewScm extends ResponseWithErrorInfo {
 }
 
 export type RequestMessage =
-	RequestAddRemote
+	RequestToolbarState
+	| RequestSelectRepository
+	| RequestAddRemote
 	| RequestAddTag
 	| RequestApplyStash
 	| RequestBranchFromStash
@@ -1312,7 +1338,9 @@ export type RequestMessage =
 	| RequestViewScm;
 
 export type ResponseMessage =
-	ResponseAddRemote
+	ResponseToolbarAction
+	| ResponseSelectRepository
+	| ResponseAddRemote
 	| ResponseAddTag
 	| ResponseApplyStash
 	| ResponseBranchFromStash

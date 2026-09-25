@@ -47,6 +47,11 @@ export class CommandManager extends Disposable {
 
 		// Register Extension Commands
 		this.registerCommand('git-graph.view', (arg) => this.view(arg));
+		this.registerCommand('git-graph.selectRepository', () => GitGraphView.currentPanel?.selectRepository());
+		this.registerCommand('git-graph.repositorySettings', () => GitGraphView.currentPanel?.runToolbarAction('settings'));
+		this.registerCommand('git-graph.fetchInView', () => GitGraphView.currentPanel?.runToolbarAction('fetch'));
+		this.registerCommand('git-graph.refresh', () => GitGraphView.currentPanel?.runToolbarAction('refresh'));
+
 		this.registerCommand('git-graph.addGitRepository', () => this.addGitRepository());
 		this.registerCommand('git-graph.removeGitRepository', () => this.removeGitRepository());
 		this.registerCommand('git-graph.clearAvatarCache', () => this.clearAvatarCache());
@@ -80,7 +85,7 @@ export class CommandManager extends Disposable {
 		this.registerDisposable(
 			vscode.commands.registerCommand(command, (...args: any[]) => {
 				this.logger.log('Command Invoked: ' + command);
-				callback(...args);
+				return callback(...args);
 			})
 		);
 	}
@@ -120,6 +125,7 @@ export class CommandManager extends Disposable {
 			loadRepo = this.repoManager.getRepoContainingFile(getPathFromUri(vscode.window.activeTextEditor.document.uri));
 		}
 
+		if (this.isDisposed()) return;
 		GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, loadRepo !== null ? { repo: loadRepo } : null);
 	}
 
@@ -221,6 +227,7 @@ export class CommandManager extends Disposable {
 				canPickMany: false
 			}).then((item) => {
 				if (item && item.description) {
+					if (this.isDisposed()) return;
 					GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, {
 						repo: item.description,
 						runCommandOnLoad: 'fetch'
@@ -230,11 +237,13 @@ export class CommandManager extends Disposable {
 				showErrorMessage('An unexpected error occurred while running the command "Fetch from Remote(s)".');
 			});
 		} else if (repoPaths.length === 1) {
+			if (this.isDisposed()) return;
 			GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, {
 				repo: repoPaths[0],
 				runCommandOnLoad: 'fetch'
 			});
 		} else {
+			if (this.isDisposed()) return;
 			GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, null);
 		}
 	}
@@ -291,6 +300,7 @@ export class CommandManager extends Disposable {
 		}).then((item) => {
 			if (item) {
 				const commitHashes = item.codeReviewId.split('-');
+				if (this.isDisposed()) return;
 				GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, {
 					repo: item.codeReviewRepo,
 					commitDetails: {

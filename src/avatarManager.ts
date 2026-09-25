@@ -41,7 +41,7 @@ export class AvatarManager extends Disposable {
 		this.avatarEventEmitter = new EventEmitter<AvatarEvent>();
 		this.avatars = this.extensionState.getAvatarCache();
 		this.queue = new AvatarRequestQueue(() => {
-			if (this.interval !== null) return;
+			if (this.isDisposed() || this.interval !== null) return;
 			this.interval = setInterval(() => {
 				// Fetch avatars every 10 seconds
 				this.fetchAvatarsInterval();
@@ -79,6 +79,7 @@ export class AvatarManager extends Disposable {
 	 * @param commits The commits that reference the avatar.
 	 */
 	public fetchAvatarImage(email: string, repo: string, remote: string | null, commits: string[]) {
+		if (this.isDisposed()) return;
 		if (typeof this.avatars[email] !== 'undefined') {
 			// Avatar exists in the cache
 			let t = (new Date()).getTime();
@@ -145,11 +146,13 @@ export class AvatarManager extends Disposable {
 	 * Triggered by an interval to fetch avatars from Github, GitLab and Gravatar.
 	 */
 	private async fetchAvatarsInterval() {
+		if (this.isDisposed()) return;
 		if (this.queue.hasItems()) {
 			let avatarRequest = this.queue.takeItem();
 			if (avatarRequest === null) return; // No avatar can be checked at the current time
 
 			let remoteSource = await this.getRemoteSource(avatarRequest); // Fetch the remote source of the avatar
+			if (this.isDisposed()) return;
 			switch (remoteSource.type) {
 				case 'github':
 					this.fetchFromGithub(avatarRequest, remoteSource.owner, remoteSource.repo);
@@ -431,6 +434,7 @@ export class AvatarManager extends Disposable {
 	 * @param identicon Whether this avatar is an identicon.
 	 */
 	private saveAvatar(email: string, image: string, identicon: boolean) {
+		if (this.isDisposed()) return;
 		if (typeof this.avatars[email] !== 'undefined') {
 			if (!identicon || this.avatars[email].identicon) {
 				this.avatars[email].image = image;

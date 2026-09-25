@@ -1,0 +1,108 @@
+#commitTable td.descriptionCell{
+	position:relative;
+	overflow:visible;
+}
+#commitTable tr.commit .description{
+	align-items:center;
+	gap:8px;
+}
+.commitSummary{
+	display:flex;
+	flex:1;
+	min-width:0;
+	overflow:hidden;
+}
+/* Only applied synchronously while measuring the natural content widths. */
+#commitTable.measuringBranchLabels .commitSummary{
+	flex:none;
+	width:max-content;
+}
+.commitBranches{
+	display:flex;
+	align-items:center;
+	gap:4px;
+	position:relative;
+	flex:none;
+	min-width:0;
+	line-height:24px;
+}
+.commitBranchLabels, .branchLabelsPopup{
+	display:inline-flex;
+	gap:5px;
+	width:max-content;
+	vertical-align:top;
+}
+.commitBranchLabels .gitRef, .branchLabelsPopup .gitRef{
+	margin-right:0;
+}
+.commitBranchLabels:empty, .branchLabelsPopup:empty{
+	display:none;
+}
+.branchLabelsHint{
+	display:none;
+}
+.branchLabelsOverflow .branchLabelsHint{
+	display:block;
+	box-sizing:border-box;
+	flex:none;
+	width:22px;
+	height:24px;
+	padding:4px;
+	border:0;
+	background:transparent;
+	color:var(--git-graph-color);
+	cursor:pointer;
+}
+.branchLabelsHint svg{
+	width:14px;
+	height:14px;
+	fill:currentColor;
+}
+.branchLabelsOverflow .branchLabelsPopup{
+	position:absolute;
+	right:0;
+	bottom:100%;
+	z-index:5;
+	max-width:var(--branch-popup-width, min(600px, calc(100vw - 32px)));
+	box-sizing:border-box;
+	padding:4px 6px;
+	flex-wrap:wrap;
+	justify-content:flex-end;
+	border:1px solid var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
+	border-radius:4px;
+	background:var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+	box-shadow:0 2px 8px var(--vscode-widget-shadow);
+	visibility:hidden;
+	pointer-events:none;
+}
+.branchLabelsPopup .gitRef{
+	display:inline-flex;
+	max-width:100%;
+}
+.branchLabelsPopup .gitRefName{
+	min-width:0;
+	overflow:hidden;
+	text-overflow:ellipsis;
+}
+.branchLabelsPopup .gitRef > svg, .branchLabelsPopup .gitRefHeadRemote{
+	flex:none;
+}
+#commitTable tr.commit:hover .branchLabelsOverflow .branchLabelsPopup,
+#commitTable tr.commit.contextMenuActive .branchLabelsOverflow .branchLabelsPopup,
+#commitTable tr.commit.dialogActive .branchLabelsOverflow .branchLabelsPopup,
+.branchLabelsOverflow:has(.contextMenuActive, .dialogActive) .branchLabelsPopup,
+.branchLabelsOverflow:focus-within .branchLabelsPopup{
+	visibility:visible;
+	pointer-events:auto;
+}
+#commitTable tr.commit:hover td.descriptionCell,
+#commitTable tr.commit:focus-within td.descriptionCell,
+#commitTable tr.commit.contextMenuActive td.descriptionCell,
+#commitTable tr.commit.dialogActive td.descriptionCell,
+#commitTable td.descriptionCell:has(.contextMenuActive, .dialogActive){
+	z-index:5;
+}
+.branchLabelsBelow .branchLabelsPopup{
+	top:100%;
+	bottom:auto;
+}

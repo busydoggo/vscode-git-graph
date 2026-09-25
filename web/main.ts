@@ -7,6 +7,11 @@ class GitGraphView {
 	private gitStashes: ReadonlyArray<GG.GitStash> = [];
 	private gitTags: ReadonlyArray<string> = [];
 	private commits: GG.GitCommit[] = [];
+	private loadedCommits: GG.GitCommit[] = [];
+	private authorFilter: string = '';
+	private readonly authorFilterInput = document.createElement('input');
+	private readonly authorFilterWidget = document.createElement('div');
+	private readonly authorFilterClear = document.createElement('button');
 	private commitHead: string | null = null;
 	private commitLookup: { [hash: string]: number } = {};
 	private onlyFollowFirstParent: boolean = false;
@@ -43,15 +48,13 @@ class GitGraphView {
 
 	private readonly findWidget: FindWidget;
 	private readonly settingsWidget: SettingsWidget;
-	private readonly repoDropdown: Dropdown;
+	private readonly repoPicker = new RepoPicker(repo => sendMessage({ command: 'selectRepository', repo: repo }));
 	private readonly branchDropdown: Dropdown;
+	private graphHeaderResizeObserver: ResizeObserver | null = null;
 
 	private readonly viewElem: HTMLElement;
-	private readonly controlsElem: HTMLElement;
 	private readonly tableElem: HTMLElement;
 	private readonly footerElem: HTMLElement;
-	private readonly showRemoteBranchesElem: HTMLInputElement;
-	private readonly refreshBtnElem: HTMLElement;
 	private readonly scrollShadowElem: HTMLElement;
 
 	constructor(viewElem: HTMLElement, prevState: WebViewState | null) {
@@ -70,20 +73,52 @@ class GitGraphView {
 			requestingConfig: false
 		};
 
-		this.controlsElem = document.getElementById('controls')!;
 		this.tableElem = document.getElementById('commitTable')!;
 		this.footerElem = document.getElementById('footer')!;
 		this.scrollShadowElem = <HTMLInputElement>document.getElementById('scrollShadow')!;
 
 		viewElem.focus();
+		this.authorFilterWidget.className = 'authorFilterWidget headerSearch';
+		this.authorFilterWidget.innerHTML = '<span class="findSearchIcon authorFilterIcon" aria-hidden="true">' + SVG_ICONS.filter + '</span>';
+		this.authorFilterWidget.appendChild(this.authorFilterInput);
+		this.authorFilterClear.id = 'authorFilterClear';
+		this.authorFilterClear.type = 'button';
+		this.authorFilterClear.title = 'Clear author filter (Escape)';
+		this.authorFilterClear.setAttribute('aria-label', 'Clear author filter');
+		this.authorFilterClear.innerHTML = SVG_ICONS.close;
+		this.authorFilterClear.hidden = true;
+		this.authorFilterWidget.appendChild(this.authorFilterClear);
+		this.authorFilterWidget.insertAdjacentHTML('beforeend', SEARCH_HINT_HTML);
+		this.authorFilterClear.addEventListener('click', () => this.clearAuthorFilter());
+		this.authorFilterWidget.addEventListener('focusin', () => this.updateAuthorFilterAppearance());
+		this.authorFilterWidget.addEventListener('focusout', event => {
+			if (!this.authorFilterWidget.contains(<Node | null>event.relatedTarget)) {
+				this.authorFilterClear.hidden = this.authorFilterInput.value === '';
+			}
+		});
+		this.authorFilterInput.className = 'headerSearchInput';
+		this.authorFilterInput.id = 'authorFilter';
+		this.authorFilterInput.type = 'text';
+		this.authorFilterInput.size = 10;
+		this.authorFilterInput.placeholder = 'Author';
+		this.authorFilterInput.title = 'Filter loaded commits by author (partial match)';
+		this.authorFilterInput.setAttribute('aria-label', 'Filter commits by author');
+		this.authorFilterInput.addEventListener('input', (event) => {
+			this.updateAuthorFilterAppearance();
+			if (!(<InputEvent>event).isComposing) this.applyAuthorFilter();
+		});
+		this.authorFilterInput.addEventListener('compositionend', () => this.applyAuthorFilter());
+		this.authorFilterInput.addEventListener('keydown', event => {
+			event.stopPropagation();
+			if (!event.isComposing && event.key === 'Escape') this.clearAuthorFilter();
+		});
 
 		this.graph = new Graph('commitGraph', viewElem, this.config.graph, this.config.mute);
 
-		this.repoDropdown = new Dropdown('repoDropdown', true, false, 'Repos', (values) => {
-			this.loadRepo(values[0]);
-		});
-
-		this.branchDropdown = new Dropdown('branchDropdown', false, true, 'Branches', (values) => {
+		const graphFilter = document.createElement('div');
+		graphFilter.id = 'branchDropdown';
+		graphFilter.className = 'dropdown dropdownIcon';
+		this.branchDropdown = new Dropdown(graphFilter, false, true, 'Branches', (values) => {
 			this.currentBranches = values;
 			this.maxCommits = this.config.initialLoadCommits;
 			this.saveState();
@@ -91,24 +126,9 @@ class GitGraphView {
 			this.requestLoadRepoInfoAndCommits(true, true);
 		});
 
-		this.showRemoteBranchesElem = <HTMLInputElement>document.getElementById('showRemoteBranchesCheckbox')!;
-		this.showRemoteBranchesElem.addEventListener('change', () => {
-			this.saveRepoStateValue(this.currentRepo, 'showRemoteBranchesV2', this.showRemoteBranchesElem.checked ? GG.BooleanOverride.Enabled : GG.BooleanOverride.Disabled);
-			this.refresh(true);
-		});
-
-		this.refreshBtnElem = document.getElementById('refreshBtn')!;
-		this.refreshBtnElem.addEventListener('click', () => {
-			if (!this.refreshBtnElem.classList.contains(CLASS_REFRESHING)) {
-				this.refresh(true, true);
-			}
-		});
-		this.renderRefreshButton();
-
 		this.findWidget = new FindWidget(this);
 		this.settingsWidget = new SettingsWidget(this);
 
-		alterClass(document.body, CLASS_BRANCH_LABELS_ALIGNED_TO_GRAPH, this.config.referenceLabels.branchLabelsAlignedToGraph);
 		alterClass(document.body, CLASS_TAG_LABELS_RIGHT_ALIGNED, this.config.referenceLabels.tagLabelsOnRight);
 
 		this.observeWindowSizeChanges();
@@ -121,6 +141,8 @@ class GitGraphView {
 		if (prevState && !prevState.currentRepoLoading && typeof this.gitRepos[prevState.currentRepo] !== 'undefined') {
 			this.currentRepo = prevState.currentRepo;
 			this.currentBranches = prevState.currentBranches;
+			this.authorFilter = prevState.authorFilter || '';
+			this.authorFilterInput.value = this.authorFilter;
 			this.maxCommits = prevState.maxCommits;
 			this.expandedCommit = prevState.expandedCommit;
 			this.avatars = prevState.avatars;
@@ -129,7 +151,6 @@ class GitGraphView {
 			this.loadCommits(prevState.commits, prevState.commitHead, prevState.gitTags, prevState.moreCommitsAvailable, prevState.onlyFollowFirstParent);
 			this.findWidget.restoreState(prevState.findWidget);
 			this.settingsWidget.restoreState(prevState.settingsWidget);
-			this.showRemoteBranchesElem.checked = getShowRemoteBranches(this.gitRepos[prevState.currentRepo].showRemoteBranchesV2);
 		}
 
 		let loadViewTo = initialState.loadViewTo;
@@ -144,23 +165,6 @@ class GitGraphView {
 			}
 			this.requestLoadRepoInfoAndCommits(false, false);
 		}
-
-		const fetchBtn = document.getElementById('fetchBtn')!, findBtn = document.getElementById('findBtn')!, settingsBtn = document.getElementById('settingsBtn')!, terminalBtn = document.getElementById('terminalBtn')!;
-		fetchBtn.title = 'Fetch' + (this.config.fetchAndPrune ? ' & Prune' : '') + ' from Remote(s)';
-		fetchBtn.innerHTML = SVG_ICONS.download;
-		fetchBtn.addEventListener('click', () => this.fetchFromRemotesAction());
-		findBtn.innerHTML = SVG_ICONS.search;
-		findBtn.addEventListener('click', () => this.findWidget.show(true));
-		settingsBtn.innerHTML = SVG_ICONS.gear;
-		settingsBtn.addEventListener('click', () => this.settingsWidget.show(this.currentRepo));
-		terminalBtn.innerHTML = SVG_ICONS.terminal;
-		terminalBtn.addEventListener('click', () => {
-			runAction({
-				command: 'openTerminal',
-				repo: this.currentRepo,
-				name: this.gitRepos[this.currentRepo].name || getRepoName(this.currentRepo)
-			}, 'Opening Terminal');
-		});
 	}
 
 
@@ -181,8 +185,6 @@ class GitGraphView {
 			newRepo = this.currentRepo;
 		}
 
-		alterClass(this.controlsElem, 'singleRepo', Object.keys(repos).length === 1);
-		this.renderRepoDropdownOptions(newRepo);
 
 		if (loadViewTo !== null) {
 			if (loadViewTo.repo === newRepo) {
@@ -205,16 +207,17 @@ class GitGraphView {
 	}
 
 	private loadRepo(repo: string) {
+		this.authorFilter = '';
+		this.authorFilterInput.value = '';
 		this.currentRepo = repo;
 		this.currentRepoLoading = true;
-		this.showRemoteBranchesElem.checked = getShowRemoteBranches(this.gitRepos[this.currentRepo].showRemoteBranchesV2);
 		this.maxCommits = this.config.initialLoadCommits;
 		this.gitConfig = null;
 		this.gitRemotes = [];
 		this.gitStashes = [];
 		this.gitTags = [];
 		this.currentBranches = null;
-		this.renderFetchButton();
+		this.updateToolbarState();
 		this.closeCommitDetails(false);
 		this.settingsWidget.close();
 		this.saveState();
@@ -237,7 +240,7 @@ class GitGraphView {
 		this.gitRemotes = remotes;
 
 		// Update the state of the fetch button
-		this.renderFetchButton();
+		this.updateToolbarState();
 
 		// Configure current branches
 		if (this.currentBranches !== null && !(this.currentBranches.length === 1 && this.currentBranches[0] === SHOW_ALL_BRANCHES)) {
@@ -294,19 +297,21 @@ class GitGraphView {
 				dialog.closeActionRunning();
 				refreshState.inProgress = false;
 				this.loadViewTo = null;
-				this.renderRefreshButton();
+				this.updateToolbarState();
 				sendMessage({ command: 'loadRepos', check: true });
 			}
 		}
 	}
 
 	private loadCommits(commits: GG.GitCommit[], commitHead: string | null, tags: ReadonlyArray<string>, moreAvailable: boolean, onlyFollowFirstParent: boolean) {
+		this.loadedCommits = commits;
+		commits = this.getAuthorFilteredCommits(this.authorFilter);
 		// This list of tags is just used to provide additional information in the dialogs. Tag information included in commits is used for all other purposes (e.g. rendering, context menus)
 		const tagsChanged = !arraysStrictlyEqual(this.gitTags, tags);
 		this.gitTags = tags;
 
 		if (!this.currentRepoLoading && !this.currentRepoRefreshState.hard && this.moreCommitsAvailable === moreAvailable && this.onlyFollowFirstParent === onlyFollowFirstParent && this.commitHead === commitHead && commits.length > 0 && arraysEqual(this.commits, commits, (a, b) =>
-			a.hash === b.hash &&
+			a.hash === b.hash && a.author === b.author &&
 			arraysStrictlyEqual(a.heads, b.heads) &&
 			arraysEqual(a.tags, b.tags, (a, b) => a.name === b.name && a.annotated === b.annotated) &&
 			arraysEqual(a.remotes, b.remotes, (a, b) => a.name === b.name && a.remote === b.remote) &&
@@ -334,6 +339,7 @@ class GitGraphView {
 			} else if (tagsChanged) {
 				this.saveState();
 			}
+			this.saveState();
 			this.finaliseLoadCommits();
 			return;
 		}
@@ -405,7 +411,7 @@ class GitGraphView {
 			}
 
 			refreshState.inProgress = false;
-			this.renderRefreshButton();
+			this.updateToolbarState();
 		}
 
 		this.finaliseRepoLoad(true);
@@ -444,9 +450,46 @@ class GitGraphView {
 		}
 	}
 
+	private updateAuthorFilterAppearance() {
+		const hasText = this.authorFilterInput.value !== '';
+		alterClass(this.authorFilterWidget, 'hasText', hasText);
+		this.authorFilterClear.hidden = !hasText && !this.authorFilterWidget.contains(document.activeElement);
+	}
+
+	private clearAuthorFilter() {
+		this.authorFilterInput.value = '';
+		if (this.authorFilterWidget.contains(document.activeElement)) (<HTMLElement>document.activeElement).blur();
+		this.updateAuthorFilterAppearance();
+		this.applyAuthorFilter();
+	}
+
+	private getAuthorFilteredCommits(query: string): GG.GitCommit[] {
+		const author = query.trim().toLocaleLowerCase();
+		return author === '' ? this.loadedCommits : this.loadedCommits.filter(commit => commit.hash !== UNCOMMITTED && commit.author.toLocaleLowerCase().includes(author));
+	}
+
+	private applyAuthorFilter() {
+		const query = this.authorFilterInput.value.trim();
+		const commits = this.getAuthorFilteredCommits(query);
+		if ((query !== '' && commits.length === 0) || query === this.authorFilter) return;
+
+		this.authorFilter = query;
+		this.commits = commits;
+		this.commitLookup = {};
+		commits.forEach((commit, index) => this.commitLookup[commit.hash] = index);
+		if (this.expandedCommit !== null && (typeof this.commitLookup[this.expandedCommit.commitHash] === 'undefined' || (this.expandedCommit.compareWithHash !== null && typeof this.commitLookup[this.expandedCommit.compareWithHash] === 'undefined'))) {
+			this.closeCommitDetails(false);
+		}
+		closeDialogAndContextMenu();
+		this.graph.loadCommits(this.commits, this.commitHead, this.commitLookup, this.onlyFollowFirstParent);
+		this.render();
+		this.saveState();
+	}
+
 	private clearCommits() {
 		closeDialogAndContextMenu();
 		this.moreCommitsAvailable = false;
+		this.loadedCommits = [];
 		this.commits = [];
 		this.commitHead = null;
 		this.commitLookup = {};
@@ -500,7 +543,7 @@ class GitGraphView {
 		this.clearCommits();
 		this.currentRepoRefreshState.inProgress = false;
 		this.loadViewTo = null;
-		this.renderRefreshButton();
+		this.updateToolbarState();
 		dialog.showError(message, reason, 'Retry', () => {
 			this.refresh(true);
 		});
@@ -639,7 +682,7 @@ class GitGraphView {
 			refreshState.requestingRepoInfo = false;
 		}
 
-		this.renderRefreshButton();
+		this.updateToolbarState();
 		if (this.commits.length === 0) {
 			this.tableElem.innerHTML = '<h2 id="loadingHeader">' + SVG_ICONS.loading + 'Loading ...</h2>';
 		}
@@ -718,7 +761,8 @@ class GitGraphView {
 			gitRemotes: this.gitRemotes,
 			gitStashes: this.gitStashes,
 			gitTags: this.gitTags,
-			commits: this.commits,
+			commits: this.loadedCommits,
+			authorFilter: this.authorFilter,
 			commitHead: this.commitHead,
 			avatars: this.avatars,
 			currentBranches: this.currentBranches,
@@ -807,10 +851,13 @@ class GitGraphView {
 	}
 
 	private renderTable() {
+		const findInputFocused = this.findWidget.hasFocus();
+		const authorInputFocused = document.activeElement === this.authorFilterInput;
+		const authorSelectionStart = this.authorFilterInput.selectionStart;
+		const authorSelectionEnd = this.authorFilterInput.selectionEnd;
 		const colVisibility = this.getColumnVisibility();
 		const currentHash = this.commits.length > 0 && this.commits[0].hash === UNCOMMITTED ? UNCOMMITTED : this.commitHead;
 		const vertexColours = this.graph.getVertexColours();
-		const widthsAtVertices = this.config.referenceLabels.branchLabelsAlignedToGraph ? this.graph.getWidthsAtVertices() : [];
 		const mutedCommits = this.graph.getMutedCommits(currentHash);
 		const textFormatter = new TextFormatter(this.commits, this.gitRepos[this.currentRepo].issueLinkingConfig, {
 			emoji: true,
@@ -818,9 +865,9 @@ class GitGraphView {
 			markdown: this.config.markdown
 		});
 
-		let html = '<tr id="tableColHeaders"><th id="tableHeaderGraphCol" class="tableColHeader" data-col="0">Graph</th><th class="tableColHeader" data-col="1">Description</th>' +
+		let html = '<tr id="tableColHeaders"><th id="tableHeaderGraphCol" class="tableColHeader" data-col="0"><div id="graphHeaderContent"><span class="graphHeaderLabel">Branch</span></div></th><th id="tableHeaderDescriptionCol" class="tableColHeader" data-col="1"></th>' +
 			(colVisibility.date ? '<th class="tableColHeader dateCol" data-col="2">Date</th>' : '') +
-			(colVisibility.author ? '<th class="tableColHeader authorCol" data-col="3">Author</th>' : '') +
+			(colVisibility.author ? '<th id="tableHeaderAuthorCol" class="tableColHeader authorCol" data-col="3"></th>' : '') +
 			(colVisibility.commit ? '<th class="tableColHeader" data-col="4">Commit</th>' : '') +
 			'</tr>';
 
@@ -834,7 +881,7 @@ class GitGraphView {
 			for (j = 0; j < branchLabels.heads.length; j++) {
 				refName = escapeHtml(branchLabels.heads[j].name);
 				refActive = branchLabels.heads[j].name === this.gitBranchHead;
-				refHtml = '<span class="gitRef head' + (refActive ? ' active' : '') + '" data-name="' + refName + '">' + SVG_ICONS.branch + '<span class="gitRefName" data-fullref="' + refName + '">' + refName + '</span>';
+				refHtml = '<span class="gitRef head' + (refActive ? ' active' : '') + '" data-name="' + refName + '">' + SVG_ICONS.branch + '<span class="gitRefName" title="' + refName + '" data-fullref="' + refName + '">' + refName + '</span>';
 				for (k = 0; k < branchLabels.heads[j].remotes.length; k++) {
 					remoteName = escapeHtml(branchLabels.heads[j].remotes[k]);
 					refHtml += '<span class="gitRefHeadRemote" data-remote="' + remoteName + '" data-fullref="' + escapeHtml(branchLabels.heads[j].remotes[k] + '/' + branchLabels.heads[j].name) + '">' + remoteName + '</span>';
@@ -845,17 +892,17 @@ class GitGraphView {
 			}
 			for (j = 0; j < branchLabels.remotes.length; j++) {
 				refName = escapeHtml(branchLabels.remotes[j].name);
-				refBranches += '<span class="gitRef remote" data-name="' + refName + '" data-remote="' + (branchLabels.remotes[j].remote !== null ? escapeHtml(branchLabels.remotes[j].remote!) : '') + '">' + SVG_ICONS.branch + '<span class="gitRefName" data-fullref="' + refName + '">' + refName + '</span></span>';
+				refBranches += '<span class="gitRef remote" data-name="' + refName + '" data-remote="' + (branchLabels.remotes[j].remote !== null ? escapeHtml(branchLabels.remotes[j].remote!) : '') + '">' + SVG_ICONS.branch + '<span class="gitRefName" title="' + refName + '" data-fullref="' + refName + '">' + refName + '</span></span>';
 			}
 
 			for (j = 0; j < commit.tags.length; j++) {
 				refName = escapeHtml(commit.tags[j].name);
-				refTags += '<span class="gitRef tag" data-name="' + refName + '" data-tagtype="' + (commit.tags[j].annotated ? 'annotated' : 'lightweight') + '">' + SVG_ICONS.tag + '<span class="gitRefName" data-fullref="' + refName + '">' + refName + '</span></span>';
+				refTags += '<span class="gitRef tag" data-name="' + refName + '" data-tagtype="' + (commit.tags[j].annotated ? 'annotated' : 'lightweight') + '">' + SVG_ICONS.tag + '<span class="gitRefName" title="' + refName + '" data-fullref="' + refName + '">' + refName + '</span></span>';
 			}
 
 			if (commit.stash !== null) {
 				refName = escapeHtml(commit.stash.selector);
-				refBranches = '<span class="gitRef stash" data-name="' + refName + '">' + SVG_ICONS.stash + '<span class="gitRefName" data-fullref="' + refName + '">' + escapeHtml(commit.stash.selector.substring(5)) + '</span></span>' + refBranches;
+				refBranches = '<span class="gitRef stash" data-name="' + refName + '">' + SVG_ICONS.stash + '<span class="gitRefName" title="' + refName + '" data-fullref="' + refName + '">' + escapeHtml(commit.stash.selector.substring(5)) + '</span></span>' + refBranches;
 			}
 
 			const commitDot = commit.hash === this.commitHead
@@ -866,16 +913,41 @@ class GitGraphView {
 				: '';
 
 			html += '<tr class="commit' + (commit.hash === currentHash ? ' current' : '') + (mutedCommits[i] ? ' mute' : '') + '"' + (commit.hash !== UNCOMMITTED ? '' : ' id="uncommittedChanges"') + ' data-id="' + i + '" data-color="' + vertexColours[i] + '">' +
-				(this.config.referenceLabels.branchLabelsAlignedToGraph ? '<td>' + (refBranches !== '' ? '<span style="margin-left:' + (widthsAtVertices[i] - 4) + 'px"' + refBranches.substring(5) : '') + '</td><td><span class="description">' + commitDot : '<td></td><td><span class="description">' + commitDot + refBranches) + (this.config.referenceLabels.tagLabelsOnRight ? message + refTags : refTags + message) + '</span></td>' +
+				'<td></td><td class="descriptionCell"><span class="description"><span class="commitSummary">' + commitDot + (this.config.referenceLabels.tagLabelsOnRight ? message + refTags : refTags + message) + '</span>' +
+				(refBranches !== '' ? '<span class="commitBranches"><span class="commitBranchLabels">' + refBranches + '</span><button type="button" class="branchLabelsHint" aria-label="Show more branches for this commit">' + SVG_ICONS.branch + '</button><span class="branchLabelsPopup"></span></span>' : '') + '</span></td>' +
 				(colVisibility.date ? '<td class="dateCol text" title="' + date.title + '">' + date.formatted + '</td>' : '') +
 				(colVisibility.author ? '<td class="authorCol text" title="' + escapeHtml(commit.author + ' <' + commit.email + '>') + '">' + (this.config.fetchAvatars ? '<span class="avatar" data-email="' + escapeHtml(commit.email) + '">' + (typeof this.avatars[commit.email] === 'string' ? '<img class="avatarImg" src="' + this.avatars[commit.email] + '">' : '') + '</span>' : '') + escapeHtml(commit.author) + '</td>' : '') +
 				(colVisibility.commit ? '<td class="text" title="' + escapeHtml(commit.hash) + '">' + abbrevCommit(commit.hash) + '</td>' : '') +
 				'</tr>';
 		}
+		if (this.graphHeaderResizeObserver) this.graphHeaderResizeObserver.disconnect();
 		this.tableElem.innerHTML = '<table>' + html + '</table>';
+		this.branchDropdown.mount(document.getElementById('graphHeaderContent')!);
+		this.findWidget.mount(document.getElementById('tableHeaderDescriptionCol')!, findInputFocused);
+		const authorHeader = document.getElementById('tableHeaderAuthorCol');
+		if (authorHeader !== null) {
+			authorHeader.appendChild(this.authorFilterWidget);
+			this.updateAuthorFilterAppearance();
+			alterClass(this.authorFilterInput, 'active', this.authorFilter !== '');
+			if (authorInputFocused) {
+				this.authorFilterInput.focus({ preventScroll: true });
+				this.authorFilterInput.setSelectionRange(authorSelectionStart, authorSelectionEnd);
+			}
+		}
 		this.footerElem.innerHTML = this.moreCommitsAvailable ? '<div id="loadMoreCommitsBtn" class="roundedBtn">Load More Commits</div>' : '';
 		this.makeTableResizable();
+		if (!this.graphHeaderResizeObserver) {
+			this.graphHeaderResizeObserver = new ResizeObserver(() => {
+				this.updateGraphHeaderLayout();
+				this.updateBranchLabelLayout();
+			});
+		}
+		this.graphHeaderResizeObserver.observe(document.getElementById('graphHeaderContent')!);
+		this.graphHeaderResizeObserver.observe(document.getElementById('tableHeaderDescriptionCol')!);
+		this.updateGraphHeaderLayout();
+		this.branchDropdown.refresh();
 		this.findWidget.refresh();
+		this.updateBranchLabelLayout();
 		this.renderedGitBranchHead = this.gitBranchHead;
 
 		if (this.moreCommitsAvailable) {
@@ -930,15 +1002,32 @@ class GitGraphView {
 			(colVisibility.commit ? '<td class="text" title="*">*</td>' : '');
 	}
 
-	private renderFetchButton() {
-		alterClass(this.controlsElem, CLASS_FETCH_SUPPORTED, this.gitRemotes.length > 0);
+	private updateToolbarState() {
+		sendMessage({
+			command: 'toolbarState',
+			ready: !!this.currentRepo,
+			hasRemotes: this.gitRemotes.length > 0,
+			refreshing: this.currentRepoRefreshState.inProgress
+		});
 	}
 
-	public renderRefreshButton() {
-		const enabled = !this.currentRepoRefreshState.inProgress;
-		this.refreshBtnElem.title = enabled ? 'Refresh' : 'Refreshing';
-		this.refreshBtnElem.innerHTML = enabled ? SVG_ICONS.refresh : SVG_ICONS.loading;
-		alterClass(this.refreshBtnElem, CLASS_REFRESHING, !enabled);
+	public showRepoPicker(repos: GG.GitRepoSet, relativePaths: { [repo: string]: string }) {
+		this.repoPicker.show(repos, this.currentRepo, relativePaths);
+	}
+
+	public runToolbarAction(action: GG.ToolbarAction) {
+		if (!this.currentRepo) return;
+		switch (action) {
+			case 'settings':
+				this.settingsWidget.show(this.currentRepo);
+				break;
+			case 'fetch':
+				if (this.gitRemotes.length > 0) this.fetchFromRemotesAction();
+				break;
+			case 'refresh':
+				if (!this.currentRepoRefreshState.inProgress) this.refresh(true, true);
+				break;
+		}
 	}
 
 	public renderTagDetails(tagName: string, commitHash: string, details: GG.GitTagDetails) {
@@ -960,11 +1049,6 @@ class GitGraphView {
 			'</span>'
 		);
 	}
-
-	public renderRepoDropdownOptions(repo?: string) {
-		this.repoDropdown.setOptions(getRepoDropdownOptions(this.gitRepos), [repo || this.currentRepo]);
-	}
-
 
 	/* Context Menu Generation */
 
@@ -1698,6 +1782,78 @@ class GitGraphView {
 
 	/* Table Utils */
 
+	/** Keep as many complete labels inline as fit, preserving their order and event targets. */
+	private updateBranchLabelLayout() {
+		const groups = <NodeListOf<HTMLElement>>this.tableElem.querySelectorAll('.commitBranches');
+		const entries = Array.from(groups, group => {
+			const inline = <HTMLElement>group.querySelector('.commitBranchLabels');
+			const popup = <HTMLElement>group.querySelector('.branchLabelsPopup');
+			const labels = Array.from(<NodeListOf<HTMLElement>>group.querySelectorAll('.gitRef'));
+			labels.forEach((label, index) => {
+				if (label.dataset.branchOrder === undefined) label.dataset.branchOrder = String(index);
+			});
+			labels.sort((a, b) => Number(a.dataset.branchOrder) - Number(b.dataset.branchOrder));
+			group.classList.remove('branchLabelsOverflow');
+			if (popup.children.length > 0) labels.forEach(label => inline.appendChild(label));
+			return { group, inline, popup, labels };
+		});
+		// Measure intrinsic content, not the space a flex-growing summary happens to occupy.
+		this.tableElem.classList.add('measuringBranchLabels');
+		let visible: boolean[][];
+		try {
+			visible = entries.map(({ group, labels }) => {
+				const description = group.parentElement!;
+				const summary = <HTMLElement>description.querySelector('.commitSummary');
+				const available = Math.max(0, description.getBoundingClientRect().width - summary.getBoundingClientRect().width - 8);
+				const widths = labels.map(label => label.getBoundingClientRect().width);
+				const total = widths.reduce((sum, width) => sum + width, 0) + Math.max(0, labels.length - 1) * 5;
+				if (total <= available) return labels.map(() => true);
+				// Reserve the 22px overflow icon and its 4px gap from the inline labels.
+				let remaining = Math.max(0, available - 26), count = 0;
+				return widths.map(width => {
+					const required = width + (count > 0 ? 5 : 0);
+					if (required > remaining) return false;
+					remaining -= required;
+					count++;
+					return true;
+				});
+			});
+		} finally {
+			this.tableElem.classList.remove('measuringBranchLabels');
+		}
+
+		entries.forEach(({ group, popup, labels }, index) => {
+			labels.forEach((label, labelIndex) => {
+				if (!visible[index][labelIndex]) popup.appendChild(label);
+			});
+			const hidden = popup.children.length;
+			group.classList.toggle('branchLabelsOverflow', hidden > 0);
+			const hint = <HTMLButtonElement>group.querySelector('.branchLabelsHint');
+			hint.title = 'Show ' + hidden + ' more branch label' + (hidden === 1 ? '' : 's');
+			hint.setAttribute('aria-label', hint.title);
+		});
+	}
+
+	private positionBranchLabels(row: HTMLElement) {
+		const group = <HTMLElement | null>row.querySelector('.branchLabelsOverflow');
+		if (group === null) return;
+		const labels = <HTMLElement>group.querySelector('.branchLabelsPopup');
+		const rect = group.getBoundingClientRect();
+		group.style.setProperty('--branch-popup-width', Math.max(80, Math.min(600, rect.right - this.viewElem.getBoundingClientRect().left - 8)) + 'px');
+		const header = document.getElementById('tableColHeaders');
+		const top = header !== null ? header.getBoundingClientRect().bottom : 0;
+		group.classList.toggle('branchLabelsBelow', rect.top - labels.offsetHeight < top);
+	}
+
+	private updateGraphHeaderLayout() {
+		const header = document.getElementById('tableHeaderGraphCol');
+		const content = document.getElementById('graphHeaderContent');
+		if (header === null || content === null) return;
+		const label = <HTMLElement>content.querySelector('.graphHeaderLabel')!;
+		const button = <HTMLElement>content.querySelector('.dropdownCurrentValue')!;
+		alterClass(header, 'graphHeaderCompact', content.clientWidth < label.scrollWidth + button.offsetWidth + 4);
+	}
+
 	private makeTableResizable() {
 		let colHeadersElem = document.getElementById('tableColHeaders')!, cols = <HTMLCollectionOf<HTMLElement>>document.getElementsByClassName('tableColHeader');
 		let columnWidths: GG.ColumnWidth[], mouseX = -1, col = -1, colIndex = -1;
@@ -1715,7 +1871,7 @@ class GitGraphView {
 
 		for (let i = 0; i < cols.length; i++) {
 			let col = parseInt(cols[i].dataset.col!);
-			cols[i].innerHTML += (i > 0 ? '<span class="resizeCol left" data-col="' + (col - 1) + '"></span>' : '') + (i < cols.length - 1 ? '<span class="resizeCol right" data-col="' + col + '"></span>' : '');
+			cols[i].insertAdjacentHTML('beforeend', (i > 0 ? '<span class="resizeCol left" data-col="' + (col - 1) + '"></span>' : '') + (i < cols.length - 1 ? '<span class="resizeCol right" data-col="' + col + '"></span>' : ''));
 		}
 
 		let cWidths = this.gitRepos[this.currentRepo].columnWidths;
@@ -1918,9 +2074,9 @@ class GitGraphView {
 		const elem = findCommitElemWithId(getCommitElems(), this.getCommitId(hash));
 		if (elem === null) return;
 
-		let elemTop = this.controlsElem.clientHeight + elem.offsetTop;
-		if (alwaysCenterCommit || elemTop - 8 < this.viewElem.scrollTop || elemTop + 32 - this.viewElem.clientHeight > this.viewElem.scrollTop) {
-			this.viewElem.scroll(0, this.controlsElem.clientHeight + elem.offsetTop + 12 - this.viewElem.clientHeight / 2);
+		const elemTop = this.getViewOffsetTop(elem), stickyHeight = this.getStickyHeaderHeight();
+		if (alwaysCenterCommit || elemTop - 8 < this.viewElem.scrollTop + stickyHeight || elemTop + 32 - this.viewElem.clientHeight > this.viewElem.scrollTop) {
+			this.viewElem.scroll(0, elemTop + 12 - (this.viewElem.clientHeight + stickyHeight) / 2);
 		}
 
 		if (flash && !elem.classList.contains('flash')) {
@@ -1929,6 +2085,17 @@ class GitGraphView {
 				elem.classList.remove('flash');
 			}, 850);
 		}
+	}
+
+	/** Height of the area covered by the pinned column titles. */
+	private getStickyHeaderHeight() {
+		const header = document.getElementById('tableColHeaders');
+		return header !== null ? header.getBoundingClientRect().height : 0;
+	}
+
+	/** Position in the scrollable view, independent of an element's offset parent. */
+	private getViewOffsetTop(elem: HTMLElement) {
+		return elem.getBoundingClientRect().top - this.viewElem.getBoundingClientRect().top + this.viewElem.scrollTop;
 	}
 
 	private loadMoreCommits() {
@@ -1980,8 +2147,8 @@ class GitGraphView {
 			if (ff !== fontFamily || eff !== editorFontFamily) {
 				fontFamily = ff;
 				editorFontFamily = eff;
-				this.repoDropdown.refresh();
 				this.branchDropdown.refresh();
+				this.updateBranchLabelLayout();
 			}
 			if (fmc !== findMatchColour) {
 				findMatchColour = fmc;
@@ -2083,7 +2250,7 @@ class GitGraphView {
 						this.refresh(true, true);
 						handledEvent(e);
 					} else if (key === keybindings.find) {
-						this.findWidget.show(true);
+						this.findWidget.show();
 						handledEvent(e);
 					} else if (key === keybindings.scrollToHead && this.commitHead !== null) {
 						this.scrollToCommit(this.commitHead, true, true);
@@ -2091,10 +2258,7 @@ class GitGraphView {
 					}
 				}
 			} else if (e.key === 'Escape') {
-				if (this.repoDropdown.isOpen()) {
-					this.repoDropdown.close();
-					handledEvent(e);
-				} else if (this.branchDropdown.isOpen()) {
+				if (this.branchDropdown.isOpen()) {
 					this.branchDropdown.close();
 					handledEvent(e);
 				} else if (this.settingsWidget.isVisible()) {
@@ -2199,11 +2363,21 @@ class GitGraphView {
 	}
 
 	private observeTableEvents() {
+		const positionLabels = (event: Event) => {
+			const row = event.target instanceof Element ? event.target.closest<HTMLElement>('tr.commit') : null;
+			if (row !== null) this.positionBranchLabels(row);
+		};
+		this.tableElem.addEventListener('mouseover', positionLabels);
+		this.tableElem.addEventListener('focusin', positionLabels);
 
 		// Register Click Event Handler
 		this.tableElem.addEventListener('click', (e: MouseEvent) => {
 			if (e.target === null) return;
 			const eventTarget = <Element>e.target;
+			if (eventTarget.closest('.branchLabelsHint') !== null) {
+				handledEvent(e);
+				return;
+			}
 			if (isUrlElem(eventTarget)) return;
 			let eventElem: HTMLElement | null;
 
@@ -2586,25 +2760,26 @@ class GitGraphView {
 		if (!isDocked) this.renderGraph();
 
 		if (!refresh) {
+			const stickyHeight = this.getStickyHeaderHeight();
 			if (isDocked) {
-				let elemTop = this.controlsElem.clientHeight + expandedCommit.commitElem.offsetTop;
-				if (elemTop - 8 < this.viewElem.scrollTop) {
+				let elemTop = this.getViewOffsetTop(expandedCommit.commitElem);
+				if (elemTop - 8 < this.viewElem.scrollTop + stickyHeight) {
 					// Commit is above what is visible on screen
-					this.viewElem.scroll(0, elemTop - 8);
+					this.viewElem.scroll(0, elemTop - stickyHeight - 8);
 				} else if (elemTop - this.viewElem.clientHeight + 32 > this.viewElem.scrollTop) {
 					// Commit is below what is visible on screen
 					this.viewElem.scroll(0, elemTop - this.viewElem.clientHeight + 32);
 				}
 			} else {
-				let elemTop = this.controlsElem.clientHeight + elem.offsetTop, cdvHeight = this.gitRepos[this.currentRepo].cdvHeight;
+				let elemTop = this.getViewOffsetTop(elem), cdvHeight = this.gitRepos[this.currentRepo].cdvHeight;
 				if (this.config.commitDetailsView.autoCenter) {
 					// Center Commit Detail View setting is enabled
-					// elemTop - commit height [24px] + (commit details view height + commit height [24px]) / 2 - (view height) / 2
-					this.viewElem.scroll(0, elemTop - 12 + (cdvHeight - this.viewElem.clientHeight) / 2);
-				} else if (elemTop - 32 < this.viewElem.scrollTop) {
+					// Center within the visible area below the sticky headers.
+					this.viewElem.scroll(0, elemTop - 12 + (cdvHeight - this.viewElem.clientHeight - stickyHeight) / 2);
+				} else if (elemTop - 32 < this.viewElem.scrollTop + stickyHeight) {
 					// Commit Detail View is opening above what is visible on screen
-					// elemTop - commit height [24px] - desired gap from top [8px] < view scroll offset
-					this.viewElem.scroll(0, elemTop - 32);
+					// Leave the commit row and an 8px gap below the sticky headers.
+					this.viewElem.scroll(0, elemTop - stickyHeight - 32);
 				} else if (elemTop + cdvHeight - this.viewElem.clientHeight + 8 > this.viewElem.scrollTop) {
 					// Commit Detail View is opening below what is visible on screen
 					// elemTop + commit details view height + desired gap from bottom [8px] - view height > view scroll offset
@@ -3360,6 +3535,12 @@ window.addEventListener('load', () => {
 					dialog.showError('Unable to Rebase current branch on ' + msg.actionOn, msg.error, null, null);
 				}
 				break;
+			case 'selectRepository':
+				gitGraph.showRepoPicker(msg.repos, msg.relativePaths);
+				break;
+			case 'toolbarAction':
+				gitGraph.runToolbarAction(msg.action);
+				break;
 			case 'refresh':
 				gitGraph.refresh(false);
 				break;
@@ -3815,96 +3996,6 @@ function haveFilesChanged(oldFiles: ReadonlyArray<GG.GitFileChange> | null, newF
 
 function abbrevCommit(commitHash: string) {
 	return commitHash.substring(0, 8);
-}
-
-function getRepoDropdownOptions(repos: Readonly<GG.GitRepoSet>) {
-	const repoPaths = getSortedRepositoryPaths(repos, initialState.config.repoDropdownOrder);
-	const paths: string[] = [], names: string[] = [], distinctNames: string[] = [], firstSep: number[] = [];
-	const resolveAmbiguous = (indexes: number[]) => {
-		// Find ambiguous names within indexes
-		let firstOccurrence: { [name: string]: number } = {}, ambiguous: { [name: string]: number[] } = {};
-		for (let i = 0; i < indexes.length; i++) {
-			let name = distinctNames[indexes[i]];
-			if (typeof firstOccurrence[name] === 'number') {
-				// name is ambiguous
-				if (typeof ambiguous[name] === 'undefined') {
-					// initialise ambiguous array with the first occurrence
-					ambiguous[name] = [firstOccurrence[name]];
-				}
-				ambiguous[name].push(indexes[i]); // append current ambiguous index
-			} else {
-				firstOccurrence[name] = indexes[i]; // set the first occurrence of the name
-			}
-		}
-
-		let ambiguousNames = Object.keys(ambiguous);
-		for (let i = 0; i < ambiguousNames.length; i++) {
-			// For each ambiguous name, resolve the ambiguous indexes
-			let ambiguousIndexes = ambiguous[ambiguousNames[i]], retestIndexes = [];
-			for (let j = 0; j < ambiguousIndexes.length; j++) {
-				let ambiguousIndex = ambiguousIndexes[j];
-				let nextSep = paths[ambiguousIndex].lastIndexOf('/', paths[ambiguousIndex].length - distinctNames[ambiguousIndex].length - 2);
-				if (firstSep[ambiguousIndex] < nextSep) {
-					// prepend the addition path and retest
-					distinctNames[ambiguousIndex] = paths[ambiguousIndex].substring(nextSep + 1);
-					retestIndexes.push(ambiguousIndex);
-				} else {
-					distinctNames[ambiguousIndex] = paths[ambiguousIndex];
-				}
-			}
-			if (retestIndexes.length > 1) {
-				// If there are 2 or more indexes that may be ambiguous
-				resolveAmbiguous(retestIndexes);
-			}
-		}
-	};
-
-	// Initialise recursion
-	const indexes = [];
-	for (let i = 0; i < repoPaths.length; i++) {
-		firstSep.push(repoPaths[i].indexOf('/'));
-		const repo = repos[repoPaths[i]];
-		if (repo.name) {
-			// A name has been set for the repository
-			paths.push(repoPaths[i]);
-			names.push(repo.name);
-			distinctNames.push(repo.name);
-		} else if (firstSep[i] === repoPaths[i].length - 1 || firstSep[i] === -1) {
-			// Path has no slashes, or a single trailing slash ==> use the path as the name
-			paths.push(repoPaths[i]);
-			names.push(repoPaths[i]);
-			distinctNames.push(repoPaths[i]);
-		} else {
-			paths.push(repoPaths[i].endsWith('/') ? repoPaths[i].substring(0, repoPaths[i].length - 1) : repoPaths[i]); // Remove trailing slash if it exists
-			let name = paths[i].substring(paths[i].lastIndexOf('/') + 1);
-			names.push(name);
-			distinctNames.push(name);
-			indexes.push(i);
-		}
-	}
-	resolveAmbiguous(indexes);
-
-	const options: DropdownOption[] = [];
-	for (let i = 0; i < repoPaths.length; i++) {
-		let hint;
-		if (names[i] === distinctNames[i]) {
-			// Name is distinct, no hint needed
-			hint = '';
-		} else {
-			// Hint path is the prefix of the distinctName before the common suffix with name
-			let hintPath = distinctNames[i].substring(0, distinctNames[i].length - names[i].length - 1);
-
-			// Keep two informative directories
-			let hintComps = hintPath.split('/');
-			let keepDirs = hintComps[0] !== '' ? 2 : 3;
-			if (hintComps.length > keepDirs) hintComps.splice(keepDirs, hintComps.length - keepDirs, '...');
-
-			// Construct the hint
-			hint = (distinctNames[i] !== paths[i] ? '.../' : '') + hintComps.join('/');
-		}
-		options.push({ name: names[i], value: repoPaths[i], hint: hint });
-	}
-	return options;
 }
 
 function runAction(msg: GG.RequestMessage, action: string) {

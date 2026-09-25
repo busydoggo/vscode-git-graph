@@ -20,7 +20,8 @@ class Dropdown {
 	private doubleClickTimeout: NodeJS.Timer | null = null;
 
 	private readonly elem: HTMLElement;
-	private readonly currentValueElem: HTMLDivElement;
+	private readonly currentValueElem: HTMLDivElement | HTMLButtonElement;
+	private readonly iconOnly: boolean;
 	private readonly menuElem: HTMLDivElement;
 	private readonly optionsElem: HTMLDivElement;
 	private readonly noResultsElem: HTMLDivElement;
@@ -28,18 +29,19 @@ class Dropdown {
 
 	/**
 	 * Constructs a Dropdown instance.
-	 * @param id The ID of the HTML Element that the dropdown should be rendered in.
+	 * @param id The HTML element, or its ID, that the dropdown should be rendered in.
 	 * @param showInfo Should an information icon be shown on the right of each dropdown item.
 	 * @param multipleAllowed Can multiple items be selected.
 	 * @param dropdownType The type of content the dropdown is being used for.
 	 * @param changeCallback A callback to be invoked when the selected item(s) of the dropdown changes.
 	 * @returns The Dropdown instance.
 	 */
-	constructor(id: string, showInfo: boolean, multipleAllowed: boolean, dropdownType: string, changeCallback: (values: string[]) => void) {
+	constructor(id: string | HTMLElement, showInfo: boolean, multipleAllowed: boolean, dropdownType: string, changeCallback: (values: string[]) => void) {
 		this.showInfo = showInfo;
 		this.multipleAllowed = multipleAllowed;
 		this.changeCallback = changeCallback;
-		this.elem = document.getElementById(id)!;
+		this.elem = typeof id === 'string' ? document.getElementById(id)! : id;
+		this.iconOnly = this.elem.classList.contains('dropdownIcon');
 
 		this.menuElem = document.createElement('div');
 		this.menuElem.className = 'dropdownMenu';
@@ -58,7 +60,11 @@ class Dropdown {
 		this.noResultsElem.className = 'dropdownNoResults';
 		this.noResultsElem.innerHTML = 'No results found.';
 
-		this.currentValueElem = this.elem.appendChild(document.createElement('div'));
+		this.currentValueElem = this.elem.appendChild(document.createElement(this.iconOnly ? 'button' : 'div'));
+		if (this.iconOnly) {
+			(<HTMLButtonElement>this.currentValueElem).type = 'button';
+			this.currentValueElem.setAttribute('aria-expanded', 'false');
+		}
 		this.currentValueElem.className = 'dropdownCurrentValue';
 
 		alterClass(this.elem, 'multi', multipleAllowed);
@@ -66,13 +72,14 @@ class Dropdown {
 
 		document.addEventListener('click', (e) => {
 			if (!e.target) return;
-			if (e.target === this.currentValueElem) {
+			if (this.currentValueElem.contains(<Node>e.target)) {
 				this.dropdownVisible = !this.dropdownVisible;
 				if (this.dropdownVisible) {
 					this.filterInput.value = '';
 					this.filter();
 				}
 				this.elem.classList.toggle('dropdownOpen');
+				if (this.iconOnly) this.currentValueElem.setAttribute('aria-expanded', String(this.dropdownVisible));
 				if (this.dropdownVisible) this.filterInput.focus();
 			} else if (this.dropdownVisible) {
 				if ((<HTMLElement>e.target).closest('.dropdown') !== this.elem) {
@@ -188,6 +195,13 @@ class Dropdown {
 	}
 
 	/**
+	 * Move the dropdown into a newly rendered container, retaining its selection and listeners.
+	 */
+	public mount(container: HTMLElement) {
+		container.appendChild(this.elem);
+	}
+
+	/**
 	 * Refresh the rendered dropdown to apply style changes.
 	 */
 	public refresh() {
@@ -208,6 +222,7 @@ class Dropdown {
 	public close() {
 		this.elem.classList.remove('dropdownOpen');
 		this.dropdownVisible = false;
+		if (this.iconOnly) this.currentValueElem.setAttribute('aria-expanded', 'false');
 		this.clearDoubleClickTimeout();
 	}
 
@@ -218,14 +233,20 @@ class Dropdown {
 		this.elem.classList.add('loaded');
 
 		const curValueText = formatCommaSeparatedList(this.getSelectedOptions(true));
-		this.currentValueElem.title = curValueText;
-		this.currentValueElem.innerHTML = escapeHtml(curValueText);
+		this.currentValueElem.title = (this.iconOnly ? 'Filter Branches: ' : '') + curValueText;
+		this.currentValueElem.innerHTML = this.iconOnly
+			? SVG_ICONS.filter
+			: escapeHtml(curValueText);
+		if (this.iconOnly) {
+			this.currentValueElem.setAttribute('aria-label', this.currentValueElem.title);
+			alterClass(this.elem, 'filterActive', !this.optionsSelected[0]);
+		}
 
 		let html = '';
 		for (let i = 0; i < this.options.length; i++) {
 			const escapedName = escapeHtml(this.options[i].name);
 			html += '<div class="dropdownOption' + (this.optionsSelected[i] ? ' ' + CLASS_SELECTED : '') + '" data-id="' + i + '" title="' + escapedName + '">' +
-				(this.multipleAllowed && this.optionsSelected[i] ? '<div class="dropdownOptionMultiSelected">' + SVG_ICONS.check + '</div>' : '') +
+				(this.multipleAllowed && (this.optionsSelected[i] || this.iconOnly) ? '<div class="dropdownOptionMultiSelected">' + (this.optionsSelected[i] ? SVG_ICONS.check : '') + '</div>' : '') +
 				escapedName + (typeof this.options[i].hint === 'string' && this.options[i].hint !== '' ? '<span class="dropdownOptionHint">' + escapeHtml(this.options[i].hint!) + '</span>' : '') +
 				(this.showInfo ? '<div class="dropdownOptionInfo" title="' + escapeHtml(this.options[i].value) + '">' + SVG_ICONS.info + '</div>' : '') +
 				'</div>';
@@ -238,8 +259,20 @@ class Dropdown {
 		// Width must be at least 138px for the filter element.
 		// Don't need to add 12px if showing (info icons or multi checkboxes) and the scrollbar isn't needed. The scrollbar isn't needed if: menuElem height + filter input (25px) < 297px
 		const menuElemRect = this.menuElem.getBoundingClientRect();
-		this.currentValueElem.style.width = Math.max(Math.ceil(menuElemRect.width) + ((this.showInfo || this.multipleAllowed) && menuElemRect.height < 272 ? 0 : 12), 138) + 'px';
+		const menuWidth = Math.max(Math.ceil(menuElemRect.width) + ((this.showInfo || this.multipleAllowed) && menuElemRect.height < 272 ? 0 : 12), 138);
+		this.currentValueElem.style.width = this.iconOnly ? '28px' : menuWidth + 'px';
 		this.menuElem.style.cssText = 'right:0; overflow-y:auto; max-height:297px;'; // Max height for the dropdown is [filter (31px) + 9.5 * dropdown item (28px) = 297px]
+		if (this.iconOnly) {
+			const view = <HTMLElement | null>this.elem.closest('#view');
+			const rightEdge = view !== null
+				? view.getBoundingClientRect().left + view.clientWidth - parseFloat(getComputedStyle(view).paddingRight)
+				: window.innerWidth;
+			const width = Math.min(menuWidth, rightEdge - 24);
+			const left = this.elem.getBoundingClientRect().left;
+			this.menuElem.style.width = width + 'px';
+			this.menuElem.style.right = 'auto';
+			this.menuElem.style.left = Math.max(12 - left, Math.min(0, rightEdge - 12 - left - width)) + 'px';
+		}
 		if (this.dropdownVisible) this.filter();
 	}
 

@@ -27,6 +27,9 @@ body #view{
 	background-color:var(--vscode-editor-background);
 	overflow-x:hidden;
 	overflow-y:auto;
+	scrollbar-gutter:stable;
+	padding-right:12px;
+	box-sizing:border-box;
 }
 body #view:focus{
 	outline:none;
@@ -275,7 +278,23 @@ code{
 }
 
 .tableColHeader{
-	position:relative;
+	position:sticky;
+	top:0;
+	z-index:6;
+	-webkit-backdrop-filter:blur(3px);
+	backdrop-filter:blur(3px);
+}
+.tableColHeader::before{
+	content:"";
+	position:absolute;
+	top:0;
+	right:0;
+	bottom:0;
+	left:0;
+	background-color:var(--vscode-editor-background);
+	opacity:0.6;
+	z-index:-1;
+	pointer-events:none;
 }
 .resizeCol{
 	position:absolute;
@@ -741,9 +760,6 @@ body.vscode-high-contrast #commitTable tr.commit.findCurrentCommit{
 	background-color:rgba(128,128,128,0.1);
 }
 
-body.branchLabelsAlignedToGraph tr.commit td:first-child .gitRef:last-child{
-	margin-right:0;
-}
 body.tagLabelsRightAligned .gitRef.tag{
 	margin-left:5px;
 	margin-right:0;
@@ -769,137 +785,6 @@ body.tagLabelsRightAligned .gitRef.tag{
 	50%{ opacity:0.7; }
 	75%{ opacity:1; }
 	100%{ transform:rotate(360deg); opacity:0.7; }
-}
-
-
-/* Controls */
-
-#controls{
-	display:block;
-	position:relative;
-	left:0;
-	right:0;
-	top:0;
-	padding:4px 132px 4px 0;
-	border-bottom:1px solid rgba(128,128,128,0.5);
-	line-height:32px;
-	text-align:center;
-	font-weight:700;
-	font-size:13px;
-	-webkit-user-select:none;
-	user-select:none;
-}
-
-#repoControl, #branchControl, #showRemoteBranchesControl{
-	display:inline-block;
-	white-space:nowrap;
-	margin:0 10px;
-}
-#repoDropdown, #branchDropdown{
-	margin-left:3px;
-}
-#showRemoteBranchesControl > .customCheckbox{
-	margin-right:6px;
-}
-
-.dropdownCurrentValue{
-	max-width:30vw;
-}
-#controls.singleRepo #repoControl{
-	display:none;
-}
-#controls.singleRepo .dropdownCurrentValue{
-	max-width:40vw;
-}
-
-#findBtn, #terminalBtn, #settingsBtn, #fetchBtn, #refreshBtn{
-	position:absolute;
-	top:50%;
-	width:20px;
-	height:20px;
-	margin-top:-10px;
-	cursor:pointer;
-	-webkit-user-select:none;
-	user-select:none;
-}
-#findBtn{
-	right:100px;
-}
-#terminalBtn{
-	right:70px;
-}
-#settingsBtn{
-	right:40px;
-}
-#fetchBtn{
-	display:none;
-	right:40px;
-}
-#refreshBtn{
-	right:10px;
-}
-#refreshBtn.refreshing{
-	cursor:default;
-}
-#findBtn svg, #terminalBtn svg, #settingsBtn svg, #fetchBtn svg, #refreshBtn svg{
-	position:absolute;
-	fill:var(--vscode-editor-foreground);
-	opacity:0.8;
-	stroke:var(--vscode-editor-foreground);
-	stroke-opacity:0.5;
-	stroke-width:0;
-}
-#findBtn svg, #terminalBtn svg{
-	stroke-width:0.5px;
-}
-#findBtn:hover svg, #terminalBtn:hover svg, #settingsBtn:hover svg, #fetchBtn:hover svg, #refreshBtn:hover svg{
-	opacity:1;
-	stroke-width:0.5px;
-}
-#findBtn:hover svg, #terminalBtn:hover svg{
-	stroke-width:1px;
-}
-#findBtn svg, #terminalBtn svg, #settingsBtn svg, #fetchBtn svg{
-	left:1px;
-	top:1px;
-	width:18px !important;
-	height:18px !important;
-}
-#refreshBtn svg{
-	left:2px;
-	top:2px;
-	width:16px !important;
-	height:16px !important;
-}
-#refreshBtn.refreshing svg{
-	left:3.25px;
-	top:2px;
-	width:13.5px !important;
-	height:18px !important;
-	animation:loadingIconAnimation 2s linear infinite;
-}
-
-#controls.fetchSupported{
-	padding-right:162px;
-}
-#controls.fetchSupported #findBtn{
-	right:130px;
-}
-#controls.fetchSupported #terminalBtn{
-	right:100px;
-}
-#controls.fetchSupported #settingsBtn{
-	right:70px;
-}
-#controls.fetchSupported #fetchBtn{
-	display:block;
-}
-
-#controls input:focus{
-	outline:none;
-}
-#controls label{
-	cursor:pointer;
 }
 
 
@@ -1017,7 +902,97 @@ label > input[type=radio]:checked ~ .customRadio:after{
 
 /* General */
 
-#commitGraph, #commitTable th, #commitTable td, .gitRef, #loadingHeader, .unselectable, .roundedBtn, #controls label{
+#commitGraph, #commitTable th, #commitTable td, .gitRef, #loadingHeader, .unselectable, .roundedBtn{
 	-webkit-user-select:none;
 	user-select:none;
+}
+#commitTable #tableHeaderGraphCol{
+	overflow:visible;
+	z-index:7;
+}
+#graphHeaderContent{
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	gap:4px;
+	min-width:0;
+}
+.graphHeaderLabel{
+	min-width:0;
+	overflow:hidden;
+	text-overflow:ellipsis;
+}
+#tableHeaderGraphCol #branchDropdown{
+	flex:0 0 28px;
+	margin:0;
+	vertical-align:middle;
+	line-height:18px;
+}
+#tableHeaderGraphCol .dropdownCurrentValue{
+	height:18px;
+	padding:0 5px;
+}
+
+#authorFilter{
+	flex:1;
+	box-sizing:border-box;
+	width:0;
+	min-width:0;
+	height:100%;
+	margin:0;
+	padding:0 12px;
+	border:0;
+	background:transparent;
+	color:var(--vscode-editor-foreground);
+	font:inherit;
+	line-height:16px;
+	text-align:center;
+}
+#authorFilter::placeholder{
+	color:var(--vscode-editor-foreground);
+	opacity:1;
+}
+#authorFilter:focus{
+	outline:none;
+}
+#authorFilter:focus::placeholder{
+	opacity:0;
+}
+.authorFilterWidget:focus-within #authorFilter, .authorFilterWidget.hasText #authorFilter{
+	text-align:left;
+}
+.findSearchIcon.authorFilterIcon svg{
+	fill:currentColor;
+	stroke:none;
+}
+#tableHeaderAuthorCol .resizeCol, #tableHeaderDescriptionCol .resizeCol{
+	z-index:1;
+}
+
+#graphHeaderContent{
+	position:relative;
+}
+.graphHeaderLabel{
+	transform:translateX(-16px);
+}
+#tableHeaderGraphCol #branchDropdown{
+	order:-1;
+	opacity:0;
+	pointer-events:none;
+}
+#tableHeaderGraphCol:hover #branchDropdown, #tableHeaderGraphCol:focus-within #branchDropdown, #tableHeaderGraphCol.graphHeaderCompact #branchDropdown{
+	opacity:1;
+	pointer-events:auto;
+}
+#tableHeaderGraphCol:hover .graphHeaderLabel, #tableHeaderGraphCol:focus-within .graphHeaderLabel{
+	transform:none;
+}
+#tableHeaderGraphCol.graphHeaderCompact .graphHeaderLabel{
+	visibility:hidden;
+	transform:none;
+}
+#tableHeaderGraphCol.graphHeaderCompact #branchDropdown{
+	position:absolute;
+	left:50%;
+	transform:translateX(-50%);
 }

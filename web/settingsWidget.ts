@@ -156,6 +156,7 @@ class SettingsWidget {
 				'<tr class="lineAbove"><td class="left">Name:</td><td class="leftWithEllipsis" title="' + escapedRepoName + (this.repo.name === null ? ' (Default Name from the File System)' : '') + '">' + escapedRepoName + '</td><td class="btns right"><div id="editRepoName" title="Edit Name' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (this.repo.name !== null ? ' <div id="deleteRepoName" title="Delete Name' + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
 				'<tr class="lineAbove lineBelow"><td class="left">Initial Branches:</td><td class="leftWithEllipsis" title="' + initialBranchesStr + ' (' + (initialBranchesLocallyConfigured ? 'Local' : 'Global') + ')">' + initialBranchesStr + '</td><td class="btns right"><div id="editInitialBranches" title="Edit Initial Branches' + ELLIPSIS + '">' + SVG_ICONS.pencil + '</div>' + (initialBranchesLocallyConfigured ? ' <div id="clearInitialBranches" title="Clear Initial Branches' + ELLIPSIS + '">' + SVG_ICONS.close + '</div>' : '') + '</td></tr>' +
 				'</table>' +
+				'<label id="settingsShowRemoteBranches"><input type="checkbox" id="settingsShowRemoteBranchesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Remote Branches</label><br/>' +
 				'<label id="settingsShowStashes"><input type="checkbox" id="settingsShowStashesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Stashes</label><br/>' +
 				'<label id="settingsShowTags"><input type="checkbox" id="settingsShowTagsCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Tags</label><br/>' +
 				'<label id="settingsIncludeCommitsMentionedByReflogs"><input type="checkbox" id="settingsIncludeCommitsMentionedByReflogsCheckbox" tabindex="-1"><span class="customCheckbox"></span>Include commits only mentioned by reflogs</label><span class="settingsWidgetInfo" title="Only applies when showing all branches.">' + SVG_ICONS.info + '</span><br/>' +
@@ -253,7 +254,6 @@ class SettingsWidget {
 				], 'Save Name', (values) => {
 					if (this.currentRepo === null) return;
 					this.view.saveRepoStateValue(this.currentRepo, 'name', <string>values[0] || null);
-					this.view.renderRepoDropdownOptions();
 					this.render();
 				}, null);
 			});
@@ -264,7 +264,6 @@ class SettingsWidget {
 					dialog.showConfirmation('Are you sure you want to delete the manually configured name <b><i>' + escapeHtml(this.repo.name) + '</i></b> for this repository, and use the default name from the File System <b><i>' + escapeHtml(getRepoName(this.currentRepo)) + '</i></b>?', 'Yes, delete', () => {
 						if (this.currentRepo === null) return;
 						this.view.saveRepoStateValue(this.currentRepo, 'name', null);
-						this.view.renderRepoDropdownOptions();
 						this.render();
 					}, null);
 				});
@@ -297,6 +296,16 @@ class SettingsWidget {
 					}, null);
 				});
 			}
+
+			const showRemoteBranchesElem = <HTMLInputElement>document.getElementById('settingsShowRemoteBranchesCheckbox');
+			showRemoteBranchesElem.checked = getShowRemoteBranches(this.repo.showRemoteBranchesV2);
+			showRemoteBranchesElem.addEventListener('change', () => {
+				if (this.currentRepo === null) return;
+				const elem = <HTMLInputElement | null>document.getElementById('settingsShowRemoteBranchesCheckbox');
+				if (elem === null) return;
+				this.view.saveRepoStateValue(this.currentRepo, 'showRemoteBranchesV2', elem.checked ? GG.BooleanOverride.Enabled : GG.BooleanOverride.Disabled);
+				this.view.refresh(true);
+			});
 
 			const showStashesElem = <HTMLInputElement>document.getElementById('settingsShowStashesCheckbox');
 			showStashesElem.checked = getShowStashes(this.repo.showStashes);

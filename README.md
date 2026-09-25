@@ -41,7 +41,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * Select one or more branches to be viewed
         * Select from a user predefined array of custom glob patterns (by setting `git-graph.customBranchGlobPatterns`)
     * Fetch from Remote(s) _(available on the top control bar)_
-    * Find Widget allows you to quickly find one or more commits containing a specific phrase (in the commit message / date / author / hash, branch or tag names).
+    * Search directly in the Description header to highlight matching descriptions, jump between matches with the up/down buttons, and clear the search with ×.
     * Repository Settings Widget:
         * Allows you to view, add, edit, delete, fetch & prune remotes of the repository.
         * Configure "Issue Linking" - Converts issue numbers in commit messages into hyperlinks, that open the issue in your issue tracking system.
@@ -50,7 +50,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
             * Custom Pull Request providers can be configured using the Extension Setting `git-graph.customPullRequestProviders` (e.g. for use with privately hosted Pull Request providers). Information on how to configure custom providers is available [here](https://github.com/mhutchie/vscode-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
         * Export your Git Graph Repository Configuration to a file that can be committed in the repository. It allows others working in the same repository to automatically use the same Git Graph configuration.
     * Keyboard Shortcuts (available in the Git Graph View):
-        * `CTRL/CMD + F`: Open the Find Widget.
+        * `CTRL/CMD + F`: Focus the Description search field.
         * `CTRL/CMD + H`: Scrolls the Git Graph View to be centered on the commit referenced by HEAD.
         * `CTRL/CMD + R`: Refresh the Git Graph View.
         * `CTRL/CMD + S`: Scrolls the Git Graph View to the first (or next) stash in the loaded commits.
@@ -148,6 +148,7 @@ This extension consumes the following settings:
 This extension contributes the following commands:
 
 * `git-graph.view`: Git Graph: View Git Graph
+* `git-graph.restart`: Git Graph: Restart VSCode Git Graph (restarts repository discovery and file watchers, and reopens the existing Git Graph view)
 * `git-graph.addGitRepository`: Git Graph: Add Git Repository... _(used to add sub-repos to Git Graph)_
 * `git-graph.clearAvatarCache`: Git Graph: Clear Avatar Cache
 * `git-graph.endAllWorkspaceCodeReviews`: Git Graph: End All Code Reviews in Workspace

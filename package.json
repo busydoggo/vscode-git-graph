@@ -36,6 +36,7 @@
 		"workspace"
 	],
 	"activationEvents": [
+		"onCommand:git-graph.restart",
 		"workspaceContains:.git",
 		"workspaceContains:.repo/manifest.xml"
 	],
@@ -50,6 +51,11 @@
 					"light": "resources/cmd-icon-light.svg",
 					"dark": "resources/cmd-icon-dark.svg"
 				}
+			},
+			{
+				"category": "Git Graph",
+				"command": "git-graph.restart",
+				"title": "Restart VSCode Git Graph"
 			},
 			{
 				"category": "Git Graph",
@@ -97,6 +103,34 @@
 				"title": "Open File",
 				"icon": "$(go-to-file)",
 				"enablement": "isInDiffEditor && resourceScheme == git-graph && git-graph:codiconsSupported"
+			},
+			{
+				"category": "Git Graph",
+				"command": "git-graph.repositorySettings",
+				"title": "Repository Settings",
+				"icon": "$(gear)",
+				"enablement": "activeWebviewPanelId == git-graph && git-graph:toolbarReady"
+			},
+			{
+				"category": "Git Graph",
+				"command": "git-graph.fetchInView",
+				"title": "Fetch from Remote(s)",
+				"icon": "$(cloud-download)",
+				"enablement": "activeWebviewPanelId == git-graph && git-graph:toolbarReady && git-graph:hasRemotes"
+			},
+			{
+				"category": "Git Graph",
+				"command": "git-graph.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)",
+				"enablement": "activeWebviewPanelId == git-graph && git-graph:toolbarReady && !git-graph:refreshing"
+			},
+			{
+				"category": "Git Graph",
+				"command": "git-graph.selectRepository",
+				"title": "Select Repository",
+				"icon": "$(repo)",
+				"enablement": "activeWebviewPanelId == git-graph && git-graph:toolbarReady"
 			}
 		],
 		"configuration": {
@@ -1489,6 +1523,22 @@
 				{
 					"command": "git-graph.openFile",
 					"when": "isInDiffEditor && resourceScheme == git-graph && git-graph:codiconsSupported"
+				},
+				{
+					"command": "git-graph.repositorySettings",
+					"when": "activeWebviewPanelId == git-graph"
+				},
+				{
+					"command": "git-graph.fetchInView",
+					"when": "activeWebviewPanelId == git-graph"
+				},
+				{
+					"command": "git-graph.refresh",
+					"when": "activeWebviewPanelId == git-graph"
+				},
+				{
+					"command": "git-graph.selectRepository",
+					"when": "activeWebviewPanelId == git-graph"
 				}
 			],
 			"editor/title": [
@@ -1496,6 +1546,26 @@
 					"command": "git-graph.openFile",
 					"group": "navigation",
 					"when": "isInDiffEditor && resourceScheme == git-graph && git-graph:codiconsSupported"
+				},
+				{
+					"command": "git-graph.repositorySettings",
+					"group": "navigation@1",
+					"when": "activeWebviewPanelId == git-graph"
+				},
+				{
+					"command": "git-graph.fetchInView",
+					"group": "navigation@2",
+					"when": "activeWebviewPanelId == git-graph && git-graph:hasRemotes"
+				},
+				{
+					"command": "git-graph.refresh",
+					"group": "navigation@3",
+					"when": "activeWebviewPanelId == git-graph"
+				},
+				{
+					"command": "git-graph.selectRepository",
+					"group": "navigation@0",
+					"when": "activeWebviewPanelId == git-graph"
 				}
 			],
 			"scm/title": [

@@ -26,6 +26,7 @@ export class BufferedQueue<T> extends Disposable {
 		this.onChanges = onChanges;
 
 		this.registerDisposable(toDisposable(() => {
+			this.queue.length = 0;
 			if (this.timeout !== null) {
 				clearTimeout(this.timeout);
 				this.timeout = null;
@@ -38,6 +39,7 @@ export class BufferedQueue<T> extends Disposable {
 	 * @param item The item to enqueue.
 	 */
 	public enqueue(item: T) {
+		if (this.isDisposed()) return;
 		const itemIndex = this.queue.indexOf(item);
 		if (itemIndex > -1) {
 			this.queue.splice(itemIndex, 1);
@@ -61,12 +63,12 @@ export class BufferedQueue<T> extends Disposable {
 	private async run() {
 		this.processing = true;
 		let item, changes = false;
-		while (item = this.queue.shift()) {
+		while (!this.isDisposed() && (item = this.queue.shift())) {
 			if (await this.onItem(item)) {
 				changes = true;
 			}
 		}
 		this.processing = false;
-		if (changes) this.onChanges();
+		if (changes && !this.isDisposed()) this.onChanges();
 	}
 }

@@ -134,6 +134,27 @@ describe('BufferedQueue', () => {
 		expect(queue['timeout']).toBe(null);
 	});
 
+	it('Stops processing queued events and suppresses changes after disposal', async () => {
+		let finishItem!: (changed: boolean) => void;
+		const onItem = jest.fn(() => new Promise<boolean>(resolve => { finishItem = resolve; }));
+		const onChanges = jest.fn();
+		const queue = new BufferedQueue<string>(onItem, onChanges);
+		queue.enqueue('first');
+		queue.enqueue('second');
+		const processing = queue['run']();
+
+		queue.dispose();
+		queue.enqueue('after disposal');
+		finishItem(true);
+		await processing;
+
+		expect(onItem).toHaveBeenCalledTimes(1);
+		expect(onChanges).not.toHaveBeenCalled();
+		expect(queue['queue']).toEqual([]);
+		expect(jest.getTimerCount()).toBe(0);
+		jest.useRealTimers();
+	});
+
 	describe('bufferDuration', () => {
 		it('Should use the default buffer duration of 1000ms', async () => {
 			// Setup

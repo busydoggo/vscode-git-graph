@@ -91,6 +91,20 @@ describe('AvatarManager', () => {
 		expect(avatarManager['disposables']).toHaveLength(0);
 	});
 
+	it('Does not restart avatar timers or persist late results after disposal', async () => {
+		jest.useFakeTimers();
+		avatarManager.dispose();
+		avatarManager.fetchAvatarImage('late@example.com', 'repo', null, ['commit']);
+		avatarManager['queue'].add('queued@example.com', 'repo', null, ['commit'], true);
+		await avatarManager['fetchAvatarsInterval']();
+		avatarManager['saveAvatar']('late@example.com', 'late.png', false);
+
+		expect(jest.getTimerCount()).toBe(0);
+		expect(spyOnHttpsGet).not.toHaveBeenCalled();
+		expect(spyOnSaveAvatar).not.toHaveBeenCalled();
+		jest.useRealTimers();
+	});
+
 	describe('fetchAvatarImage', () => {
 		it('Should trigger the avatar to be emitted when a known avatar is fetched', async () => {
 			// Setup

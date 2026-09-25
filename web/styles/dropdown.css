@@ -153,3 +153,45 @@ body.vscode-high-contrast .dropdownOption:hover{
 	user-select:none;
 	font-style:italic;
 }
+
+.dropdownIcon .dropdownCurrentValue{
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	overflow:hidden;
+	padding:4px 5px;
+	color:var(--vscode-editor-foreground);
+	background:transparent;
+	border-color:transparent;
+	line-height:16px;
+}
+.dropdownIcon .dropdownCurrentValue svg{
+	display:block;
+	flex-shrink:0;
+	width:16px;
+	height:16px;
+	fill:currentColor;
+	stroke:none;
+	pointer-events:none;
+}
+.dropdownIcon .dropdownCurrentValue:after{
+	display:none;
+}
+.dropdownIcon .dropdownCurrentValue:hover, .dropdownIcon.filterActive .dropdownCurrentValue, .dropdownIcon.dropdownOpen .dropdownCurrentValue{
+	background-color:rgba(128,128,128,0.2);
+}
+.dropdownIcon .dropdownCurrentValue:focus-visible{
+	outline:1px solid var(--vscode-focusBorder);
+	outline-offset:1px;
+}
+.dropdownIcon .dropdownOptionMultiSelected{
+	box-sizing:border-box;
+	width:14px;
+	height:14px;
+	border:1px solid currentColor;
+	border-radius:3px;
+}
+.dropdownIcon .dropdownOptionMultiSelected svg{
+	width:12px;
+	height:12px;
+}

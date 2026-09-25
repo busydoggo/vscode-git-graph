@@ -23,7 +23,7 @@ beforeEach(() => {
 	});
 	// Exercise the scanner without starting workspace watchers or startup tasks.
 	repoManager = Object.assign(Object.create(RepoManager.prototype), {
-		repos, dataSource: { repoRoot }, addRepo, maxDepthOfRepoSearch: 3,
+		repos, dataSource: { repoRoot }, addRepo, maxDepthOfRepoSearch: 3, disposables: [],
 		logger: { log: jest.fn() }, sendRepos: jest.fn()
 	});
 	vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/workspace'), index: 0 }];
@@ -47,6 +47,44 @@ function addDirectory(path: string, children: string[] = [], gitType?: vscode.Fi
 }
 
 describe('Breadth-first repository search', () => {
+	it('Stops an old scan when disposed while a Git probe is pending', async () => {
+		addDirectory('/workspace', ['child']);
+		addDirectory('/workspace/child', [], Directory);
+		let resolveRoot!: (root: string) => void;
+		let probeStarted!: () => void;
+		const started = new Promise<void>(resolve => { probeStarted = resolve; });
+		repoRoot.mockImplementationOnce(() => {
+			probeStarted();
+			return new Promise<string>(resolve => { resolveRoot = resolve; });
+		});
+
+		const scan = repoManager.searchWorkspaceForRepos();
+		await started;
+		repoManager.dispose();
+		resolveRoot('/workspace');
+
+		expect(await scan).toBe(false);
+		expect(addRepo).not.toHaveBeenCalled();
+		expect(repoRoot).toHaveBeenCalledTimes(1);
+		expect(await repoManager.searchWorkspaceForRepos()).toBe(false);
+		expect(repoRoot).toHaveBeenCalledTimes(1);
+	});
+
+	it('Does not start a Git probe after disposal during a directory read', async () => {
+		let resolveEntries!: (entries: [string, vscode.FileType][]) => void;
+		vscode.workspace.fs.readDirectory.mockImplementationOnce(() =>
+			new Promise<[string, vscode.FileType][]>(resolve => { resolveEntries = resolve; })
+		);
+
+		const scan = repoManager.searchWorkspaceForRepos();
+		repoManager.dispose();
+		resolveEntries([['.git', Directory]]);
+
+		expect(await scan).toBe(false);
+		expect(repoRoot).not.toHaveBeenCalled();
+		expect(addRepo).not.toHaveBeenCalled();
+	});
+
 	it.each([true, false])('Visits all siblings before their descendants (workspace root: %s)', async workspaceRoot => {
 		addDirectory('/workspace', ['first', 'second']);
 		addDirectory('/workspace/first', ['child'], Directory);
