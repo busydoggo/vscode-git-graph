@@ -169,7 +169,18 @@ export const window = {
 	showSaveDialog: jest.fn()
 };
 
+export enum FileType {
+	Unknown = 0,
+	File = 1,
+	Directory = 2,
+	SymbolicLink = 64
+}
+
 export const workspace = {
+	fs: {
+		readDirectory: jest.fn<Promise<[string, FileType][]>, [Uri]>(),
+		stat: jest.fn<Promise<vscode.FileStat>, [Uri]>()
+	},
 	createFileSystemWatcher: jest.fn(() => ({
 		onDidCreate: jest.fn(),
 		onDidChange: jest.fn(),

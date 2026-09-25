@@ -73,10 +73,10 @@ export class RepoManager extends Disposable {
 			vscode.workspace.onDidChangeWorkspaceFolders(async (e) => {
 				let changes = false, path;
 				if (e.added.length > 0) {
-					for (let i = 0; i < e.added.length; i++) {
-						path = getPathFromUri(e.added[i].uri);
-						if (await this.searchDirectoryForRepos(path, this.maxDepthOfRepoSearch)) changes = true;
-						this.startWatchingFolder(path);
+					const directories = e.added.map(folder => getPathFromUri(folder.uri));
+					if (await this.searchDirectoriesForRepos(directories, this.maxDepthOfRepoSearch, true)) changes = true;
+					for (const directory of directories) {
+						this.startWatchingFolder(directory);
 					}
 				}
 				if (e.removed.length > 0) {
@@ -342,6 +342,8 @@ export class RepoManager extends Disposable {
 	}
 
 	/**
+	 * 判断给定的路径是否在已发现的 Git 仓库内部（包括仓库根目录本身）
+	 *
 	 * Checks if the specified path is within a known repository.
 	 * @param path The path to check.
 	 * @returns TRUE => Path is within a known repository, FALSE => Path isn't within a known repository.
@@ -349,7 +351,8 @@ export class RepoManager extends Disposable {
 	private isDirectoryWithinRepos(path: string) {
 		let repoPaths = Object.keys(this.repos);
 		for (let i = 0; i < repoPaths.length; i++) {
-			if (path === repoPaths[i] || path.startsWith(pathWithTrailingSlash(repoPaths[i]))) return true;
+			// if (path === repoPaths[i] || path.startsWith(pathWithTrailingSlash(repoPaths[i]))) return true;
+			if (path === repoPaths[i]) return true;
 		}
 		return false;
 	}
@@ -456,51 +459,84 @@ export class RepoManager extends Disposable {
 		this.logger.log('Searching workspace for new repos ...');
 		let rootFolders = vscode.workspace.workspaceFolders, changes = false;
 		if (typeof rootFolders !== 'undefined') {
-			for (let i = 0; i < rootFolders.length; i++) {
-				if (await this.searchDirectoryForRepos(getPathFromUri(rootFolders[i].uri), this.maxDepthOfRepoSearch)) changes = true;
-			}
+			changes = await this.searchDirectoriesForRepos(
+				rootFolders.map(folder => getPathFromUri(folder.uri)), this.maxDepthOfRepoSearch, true
+			);
 		}
+
 		this.logger.log('Completed searching workspace for new repos');
 		if (changes) this.sendRepos();
 		return changes;
 	}
 
+	// 跳过目录的检查列表
+	private shouldSkipDirectory(dirName: string): boolean {
+		const skipDirs = ['.git', '.repo', '.cache', 'build', 'dist', 'node_modules',
+			'target', 'out', 'tmp', 'obj', 'bin', '.vscode', '.idea'];
+		return skipDirs.includes(dirName);
+	}
+
 	/**
-	 * Search the specified directory for new repositories (and add them).
-	 * @param directory The path of the directory to search.
-	 * @param maxDepth The maximum depth to recursively search.
+	 * Search directories breadth-first, completing each level before visiting its children.
+	 * Callers must have already checked that the starting paths are directories.
+	 * @param directories The starting directories to search.
+	 * @param maxDepth The maximum number of child levels to search.
+	 * @param workspaceRoots Whether the starting directories are workspace roots, which can be inside a repository.
 	 * @returns TRUE => At least one repository was added, FALSE => No repositories were added.
 	 */
-	private searchDirectoryForRepos(directory: string, maxDepth: number) {
-		return new Promise<boolean>(resolve => {
-			if (this.isDirectoryWithinRepos(directory)) {
-				resolve(false);
-				return;
-			}
-
-			this.dataSource.repoRoot(directory).then(async (root) => {
-				if (root !== null) {
-					resolve(await this.addRepo(root));
-				} else if (maxDepth > 0) {
-					fs.readdir(directory, async (err, dirContents) => {
-						if (err) {
-							resolve(false);
-						} else {
-							let dirs = [];
-							for (let i = 0; i < dirContents.length; i++) {
-								if (dirContents[i] !== '.git' && await isDirectory(directory + '/' + dirContents[i])) {
-									dirs.push(directory + '/' + dirContents[i]);
-								}
-							}
-							resolve((await evalPromises(dirs, 2, dir => this.searchDirectoryForRepos(dir, maxDepth - 1))).indexOf(true) > -1);
-						}
-					});
-				} else {
-					resolve(false);
+	private async searchDirectoriesForRepos(directories: string[], maxDepth: number, workspaceRoots: boolean = false): Promise<boolean> {
+		let currentLevel = directories, foundAny = false;
+		for (let depth = 0; depth <= maxDepth && currentLevel.length > 0; depth++) {
+			const nextLevel: string[] = [];
+			const isWorkspaceRoot = workspaceRoots && depth === 0;
+			// Keep probes serial to avoid creating too many file watchers at once.
+			for (const directory of currentLevel) {
+				if (!isWorkspaceRoot && this.shouldSkipDirectory(path.basename(directory))) {
+					continue;
 				}
-			}).catch(() => resolve(false));
-		});
+
+				// Reuse the listing needed for traversal instead of also stat-ing the directory and .git.
+				const dirContents = depth < maxDepth
+					? await vscode.workspace.fs.readDirectory(vscode.Uri.file(directory)).then(entries => entries, () => null)
+					: null;
+
+				if (isWorkspaceRoot || !this.isDirectoryWithinRepos(directory)) {
+					// Descendants require .git metadata before spawning Git. Files support
+					// worktrees / submodules; links are validated by Git.
+					const gitTypes = vscode.FileType.Directory | vscode.FileType.File | vscode.FileType.SymbolicLink;
+					const hasGitMetadata = isWorkspaceRoot || (dirContents !== null
+						? dirContents.some(([name, type]) => name === '.git' && (type & gitTypes) !== 0)
+						: await vscode.workspace.fs.stat(vscode.Uri.file(path.join(directory, '.git'))).then(
+							stat => (stat.type & gitTypes) !== 0,
+							() => false
+						));
+
+					if (hasGitMetadata) {
+						try {
+							const root = await this.dataSource.repoRoot(directory);
+							if (root !== null && !this.isDirectoryWithinRepos(root) && await this.addRepo(root)) {
+								foundAny = true;
+							}
+						} catch {
+							// A failed Git probe must not prevent searching children or siblings.
+						}
+					}
+				}
+
+				// Missing .git rules out this directory only. Queue children for the next level.
+				if (dirContents !== null) {
+					for (const [item, type] of dirContents) {
+						if (type === vscode.FileType.Directory && !this.shouldSkipDirectory(item)) {
+							nextLevel.push(path.join(directory, item));
+						}
+					}
+				}
+			}
+			currentLevel = nextLevel;
+		}
+		return foundAny;
 	}
+
 
 	/**
 	 * Check the know repositories for any new submodules (and add them).
@@ -604,7 +640,7 @@ export class RepoManager extends Disposable {
 	 */
 	private async processOnWatcherCreateEvent(path: string) {
 		if (await isDirectory(path)) {
-			if (await this.searchDirectoryForRepos(path, this.maxDepthOfRepoSearch)) {
+			if (await this.searchDirectoriesForRepos([path], this.maxDepthOfRepoSearch)) {
 				return true;
 			}
 		}
