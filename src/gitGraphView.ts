@@ -27,9 +27,10 @@ export class GitGraphView extends Disposable {
 	private readonly logger: Logger;
 	private isGraphViewLoaded: boolean = false;
 	private isPanelVisible: boolean = true;
+	private viewNeedsReload: boolean = false;
 	private currentRepo: string | null = null;
 	private titleRepo: string | null = null;
-	private loadViewTo: LoadGitGraphViewTo = null; // Is used by the next call to getHtmlForWebview, and is then reset to null
+	private loadViewTo: LoadGitGraphViewTo = null; // Consumed when the view is rebuilt or resumed
 
 	private loadRepoInfoRefreshId: number = 0;
 	private loadCommitsRefreshId: number = 0;
@@ -87,10 +88,11 @@ export class GitGraphView extends Disposable {
 		this.loadViewTo = loadViewTo;
 
 		const config = getConfig();
+		const retainContextWhenHidden = config.retainContextWhenHidden;
 		this.panel = vscode.window.createWebviewPanel('git-graph', 'Git Graph', column || vscode.ViewColumn.One, {
 			enableScripts: true,
 			localResourceRoots: [vscode.Uri.file(path.join(extensionPath, 'media'))],
-			retainContextWhenHidden: config.retainContextWhenHidden
+			retainContextWhenHidden: retainContextWhenHidden
 		});
 		this.panel.iconPath = config.tabIconColourTheme === TabIconColourTheme.Colour
 			? this.getResourcesUri('webview-icon.svg')
@@ -115,7 +117,16 @@ export class GitGraphView extends Disposable {
 			this.panel.onDidChangeViewState(() => {
 				if (this.panel.visible !== this.isPanelVisible) {
 					if (this.panel.visible) {
-						this.update();
+						const repos = this.repoManager.getRepos();
+						if (!retainContextWhenHidden || this.viewNeedsReload || !this.isGraphViewLoaded || Object.keys(repos).length === 0 || this.dataSource.isGitExecutableUnknown()) {
+							this.update(repos);
+						} else {
+							// Keep the retained DOM, filters and scroll position while updating data.
+							const loadViewTo = this.loadViewTo;
+							this.loadViewTo = null;
+							this.respondLoadRepos(repos, loadViewTo);
+							this.sendMessage({ command: 'refresh' });
+						}
 					} else {
 						this.currentRepo = null;
 						this.repoFileWatcher.stop();
@@ -124,14 +135,19 @@ export class GitGraphView extends Disposable {
 				}
 			}),
 
+			// Rebuild on the next reveal if settings embedded in the page have changed.
+			vscode.workspace.onDidChangeConfiguration(event => {
+				if (event.affectsConfiguration('git-graph')) this.viewNeedsReload = true;
+			}),
+
 			// Subscribe to events triggered when a repository is added or deleted from Git Graph
 			repoManager.onDidChangeRepos((event) => {
-				this.updateTitle();
+				this.updateTitle(this.titleRepo, event.repos);
 				if (!this.panel.visible) return;
 				const loadViewTo = event.loadRepo !== null ? { repo: event.loadRepo } : null;
 				if ((event.numRepos === 0 && this.isGraphViewLoaded) || (event.numRepos > 0 && !this.isGraphViewLoaded)) {
 					this.loadViewTo = loadViewTo;
-					this.update();
+					this.update(event.repos);
 				} else {
 					this.respondLoadRepos(event.repos, loadViewTo);
 				}
@@ -452,7 +468,7 @@ export class GitGraphView extends Disposable {
 					...repoInfo,
 					isRepo: isRepo
 				});
-				if (msg.repo !== this.currentRepo) {
+				if (!this.isDisposed() && this.panel.visible && msg.refreshId === this.loadRepoInfoRefreshId && msg.repo !== this.currentRepo) {
 					this.currentRepo = msg.repo;
 					this.extensionState.setLastActiveRepo(msg.repo);
 					this.repoFileWatcher.start(msg.repo);
@@ -650,10 +666,9 @@ export class GitGraphView extends Disposable {
 	}
 
 	/** Keep the editor title in sync with the selected repository and its display name. */
-	private updateTitle(repo: string | null = this.titleRepo) {
+	private updateTitle(repo: string | null = this.titleRepo, repos: GitRepoSet = this.repoManager.getRepos()) {
 		if (this.isDisposed()) return;
 		this.titleRepo = repo;
-		const repos = this.repoManager.getRepos();
 		this.panel.title = repo !== null && repos[repo] !== undefined
 			? 'Git (' + (repos[repo].name || getRepoName(repo)) + ')'
 			: 'Git Graph';
@@ -723,17 +738,18 @@ export class GitGraphView extends Disposable {
 	/**
 	 * Update the HTML document loaded in the Webview.
 	 */
-	private update() {
-		this.updateTitle(this.loadViewTo !== null ? this.loadViewTo.repo : this.titleRepo);
+	private update(repos: GitRepoSet = this.repoManager.getRepos()) {
+		this.viewNeedsReload = false;
+		this.updateTitle(this.loadViewTo !== null ? this.loadViewTo.repo : this.titleRepo, repos);
 		this.resetToolbarState();
-		this.panel.webview.html = this.getHtmlForWebview();
+		this.panel.webview.html = this.getHtmlForWebview(repos);
 	}
 
 	/**
 	 * Get the HTML document to be loaded in the Webview.
 	 * @returns The HTML.
 	 */
-	private getHtmlForWebview() {
+	private getHtmlForWebview(repos: GitRepoSet) {
 		const config = getConfig(), nonce = getNonce();
 		const initialState: GitGraphViewInitialState = {
 			config: {
@@ -768,7 +784,7 @@ export class GitGraphView extends Disposable {
 			},
 			lastActiveRepo: this.extensionState.getLastActiveRepo(),
 			loadViewTo: this.loadViewTo,
-			repos: this.repoManager.getRepos(),
+			repos: repos,
 			loadRepoInfoRefreshId: this.loadRepoInfoRefreshId,
 			loadCommitsRefreshId: this.loadCommitsRefreshId
 		};
@@ -781,7 +797,8 @@ export class GitGraphView extends Disposable {
 			colorParams += '[data-color="' + i + '"]{--git-graph-color:var(--git-graph-color' + i + ');} ';
 		}
 
-		if (this.dataSource.isGitExecutableUnknown()) {
+		const gitExecutableUnknown = this.dataSource.isGitExecutableUnknown();
+		if (gitExecutableUnknown) {
 			body = `<body class="unableToLoad">
 			<h2>Unable to load Git Graph</h2>
 			<p class="unableToLoadMessage">${UNABLE_TO_FIND_GIT_MSG}</p>
@@ -808,7 +825,7 @@ export class GitGraphView extends Disposable {
 			<script nonce="${nonce}">(function(){ var api = acquireVsCodeApi(); document.getElementById('rescanForReposBtn').addEventListener('click', function(){ api.postMessage({command: 'rescanForRepos'}); }); })();</script>
 			</body>`;
 		}
-		this.isGraphViewLoaded = numRepos > 0;
+		this.isGraphViewLoaded = numRepos > 0 && !gitExecutableUnknown;
 		this.loadViewTo = null;
 
 		return `<!DOCTYPE html>
@@ -864,7 +881,7 @@ export class GitGraphView extends Disposable {
 	 * @param loadViewTo What to load the view to.
 	 */
 	private respondLoadRepos(repos: GitRepoSet, loadViewTo: LoadGitGraphViewTo) {
-		this.updateTitle(loadViewTo !== null ? loadViewTo.repo : this.titleRepo);
+		this.updateTitle(loadViewTo !== null ? loadViewTo.repo : this.titleRepo, repos);
 		this.sendMessage({
 			command: 'loadRepos',
 			repos: repos,

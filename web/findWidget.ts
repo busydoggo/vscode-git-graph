@@ -97,8 +97,8 @@ class FindWidget {
 		this.findMatches(null, false);
 	}
 
-	public refresh() {
-		this.findMatches(this.getCurrentHash(), false);
+	public refresh(changedRows?: ReadonlySet<HTMLElement>) {
+		this.findMatches(this.getCurrentHash(), false, changedRows);
 	}
 
 	public setColour(colour: string) {
@@ -134,7 +134,7 @@ class FindWidget {
 
 	private failSearch(message: string) {
 		this.error = message;
-		this.clearMatches();
+		Array.from(getCommitElems()).forEach(row => this.clearRowMatches(row));
 		this.matches = [];
 		this.position = -1;
 		this.updatePosition(-1, false);
@@ -146,8 +146,12 @@ class FindWidget {
 		this.findMatches(null, true);
 	}
 
-	private findMatches(currentHash: string | null, scrollToCommit: boolean) {
-		this.clearMatches();
+	private findMatches(currentHash: string | null, scrollToCommit: boolean, updatedRows?: ReadonlySet<HTMLElement>) {
+		// An earlier error cleared every highlight, so rebuild all matches when retrying.
+		const changedRows = this.error === null ? updatedRows : undefined;
+		const previousCurrent = this.position > -1 ? this.matches[this.position].elem : null;
+		const retained = new Set(changedRows ? this.matches.filter(match => !changedRows.has(match.elem)).map(match => match.elem) : []);
+		if (!changedRows) this.clearMatches();
 		this.matches = [];
 		this.position = -1;
 		this.error = null;
@@ -164,10 +168,19 @@ class FindWidget {
 				const commit = commits[parseInt(rows[i].dataset.id!)];
 				const description = rows[i].querySelector('.description');
 				if (!commit || commit.hash === UNCOMMITTED || description === null) continue;
+				if (retained.has(rows[i])) {
+					this.matches.push({ hash: commit.hash, elem: rows[i] });
+					continue;
+				}
+				if (changedRows && !changedRows.has(rows[i])) continue;
 				pattern.lastIndex = 0;
-				if (!pattern.test(description.textContent || '')) continue;
+				if (!pattern.test(description.textContent || '')) {
+					if (changedRows) this.clearRowMatches(rows[i]);
+					continue;
+				}
 				this.matches.push({ hash: commit.hash, elem: rows[i] });
 				for (const node of getChildNodesWithTextContent(description)) {
+					if (node.parentElement!.closest('.' + CLASS_FIND_MATCH)) continue;
 					const text = node.textContent!;
 					const fragment = document.createDocumentFragment();
 					let end = 0, match: RegExpExecArray | null;
@@ -192,33 +205,41 @@ class FindWidget {
 			}
 		}
 		const previousIndex = currentHash === null ? -1 : this.matches.findIndex(match => match.hash === currentHash);
-		this.updatePosition(this.matches.length === 0 ? -1 : Math.max(0, previousIndex), scrollToCommit);
+		const position = this.matches.length === 0 ? -1 : Math.max(0, previousIndex);
+		if (previousCurrent !== null && (position === -1 || previousCurrent !== this.matches[position].elem)) previousCurrent.classList.remove(CLASS_FIND_CURRENT_COMMIT);
+		this.updatePosition(position, scrollToCommit);
+	}
+
+	private clearRowMatches(row: HTMLElement) {
+		alterClass(row, CLASS_FIND_CURRENT_COMMIT, false);
+		for (const span of Array.from(row.querySelectorAll('.' + CLASS_FIND_MATCH))) {
+			const parent = span.parentNode!;
+			parent.replaceChild(document.createTextNode(span.textContent || ''), span);
+			parent.normalize();
+		}
 	}
 
 	private clearMatches() {
-		for (const match of this.matches) {
-			match.elem.classList.remove(CLASS_FIND_CURRENT_COMMIT);
-			for (const span of Array.from(match.elem.querySelectorAll('.' + CLASS_FIND_MATCH))) {
-				const parent = span.parentNode!;
-				parent.replaceChild(document.createTextNode(span.textContent || ''), span);
-				parent.normalize();
-			}
-		}
+		for (const match of this.matches) this.clearRowMatches(match.elem);
 	}
 
 	private updatePosition(position: number, scrollToCommit: boolean) {
 		if (this.position > -1) this.matches[this.position].elem.classList.remove(CLASS_FIND_CURRENT_COMMIT);
 		this.position = position;
 		if (position > -1) {
-			this.matches[position].elem.classList.add(CLASS_FIND_CURRENT_COMMIT);
+			if (!this.matches[position].elem.classList.contains(CLASS_FIND_CURRENT_COMMIT)) this.matches[position].elem.classList.add(CLASS_FIND_CURRENT_COMMIT);
 			if (scrollToCommit) this.view.scrollToCommit(this.matches[position].hash, false);
 		}
-		this.prevElem.hidden = this.nextElem.hidden = this.matches.length === 0;
-		this.clearElem.hidden = this.text === '' && !this.hasFocus();
+		const hideNavigation = this.matches.length === 0, hideClear = this.text === '' && !this.hasFocus();
+		if (this.prevElem.hidden !== hideNavigation) this.prevElem.hidden = hideNavigation;
+		if (this.nextElem.hidden !== hideNavigation) this.nextElem.hidden = hideNavigation;
+		if (this.clearElem.hidden !== hideClear) this.clearElem.hidden = hideClear;
 		alterClass(this.widgetElem, 'hasText', this.inputElem.value !== '');
 		const count = this.matches.length > 0 ? (position + 1) + ' of ' + this.matches.length : 'No matches';
-		this.inputElem.title = this.error !== null ? this.error : this.text === '' ? 'Search descriptions' : 'Search descriptions: ' + count;
-		this.inputElem.setAttribute('aria-invalid', String(this.error !== null));
+		const title = this.error !== null ? this.error : this.text === '' ? 'Search descriptions' : 'Search descriptions: ' + count;
+		if (this.inputElem.title !== title) this.inputElem.title = title;
+		const invalid = String(this.error !== null);
+		if (this.inputElem.getAttribute('aria-invalid') !== invalid) this.inputElem.setAttribute('aria-invalid', invalid);
 		this.view.saveState();
 	}
 

@@ -79,6 +79,7 @@ describe('GitGraphView', () => {
 	});
 
 	afterEach(() => {
+		spyOnGetRepos.mockReset().mockReturnValue({ '/path/to/repo': mockRepoState() });
 		if (GitGraphView.currentPanel) {
 			GitGraphView.currentPanel.dispose();
 		}
@@ -272,7 +273,8 @@ describe('GitGraphView', () => {
 				expect(GitGraphView.currentPanel!['isPanelVisible']).toBe(false);
 			});
 
-			it('Should transition from not-visible to visible correctly', () => {
+			it('Rebuilds the page on reveal when context retention is disabled', () => {
+				vscode.mockExtensionSettingReturnValue('retainContextWhenHidden', false);
 				// Setup
 				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
 				const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
@@ -285,6 +287,95 @@ describe('GitGraphView', () => {
 				// Assert
 				expect(mockedWebviewPanel.panel.webview.html).not.toBe('');
 				expect(GitGraphView.currentPanel!['isPanelVisible']).toBe(true);
+			});
+
+			it('Keeps the retained page and refreshes data without resetting toolbar state', () => {
+				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+				const view = GitGraphView.currentPanel!;
+				const mocked = vscode.getMockedWebviewPanel(0);
+				const html = mocked.panel.webview.html;
+				const resetToolbar = jest.spyOn(view as any, 'resetToolbarState');
+				for (let i = 0; i < 3; i++) {
+					mocked.mocks.panel.setVisibility(false);
+					mocked.mocks.panel.setVisibility(true);
+					expect(mocked.panel.webview.html).toBe(html);
+				}
+				expect(mocked.mocks.messages.map(message => message.command)).toEqual(['loadRepos', 'refresh', 'loadRepos', 'refresh', 'loadRepos', 'refresh']);
+				expect(resetToolbar).not.toHaveBeenCalled();
+			});
+
+			it('Delivers a pending repository selection once when the retained page is revealed', () => {
+				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+				const mocked = vscode.getMockedWebviewPanel(0);
+				const html = mocked.panel.webview.html;
+				mocked.mocks.panel.setVisibility(false);
+				const repos = { '/path/to/other': mockRepoState() };
+				spyOnGetRepos.mockReturnValueOnce(repos);
+				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, { repo: '/path/to/other' });
+				mocked.mocks.panel.setVisibility(true);
+				expect(mocked.panel.webview.html).toBe(html);
+				expect(mocked.mocks.messages[0]).toMatchObject({ command: 'loadRepos', repos, loadViewTo: { repo: '/path/to/other' } });
+				expect(GitGraphView.currentPanel!['loadViewTo']).toBeNull();
+				mocked.mocks.panel.setVisibility(false);
+				mocked.mocks.panel.setVisibility(true);
+				expect(mocked.mocks.messages[2]).toMatchObject({ command: 'loadRepos', loadViewTo: null });
+			});
+
+			it('Shows the empty state if all repositories were removed while hidden', () => {
+				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+				const mocked = vscode.getMockedWebviewPanel(0);
+				mocked.mocks.panel.setVisibility(false);
+				spyOnGetRepos.mockReturnValueOnce({});
+				mocked.mocks.panel.setVisibility(true);
+				expect(mocked.panel.webview.html).toContain('No Git repositories were found');
+				expect(mocked.mocks.messages).toHaveLength(0);
+			});
+
+			it('Loads the graph if repositories became available while the empty page was hidden', () => {
+				spyOnGetRepos.mockReturnValueOnce({});
+				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+				const mocked = vscode.getMockedWebviewPanel(0);
+				mocked.mocks.panel.setVisibility(false);
+				mocked.mocks.panel.setVisibility(true);
+				expect(mocked.panel.webview.html).toContain('id="commitTable"');
+				expect(mocked.mocks.messages).toHaveLength(0);
+			});
+
+			it('Reloads changed extension settings once and retains the page for unrelated settings', () => {
+				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+				const mocked = vscode.getMockedWebviewPanel(0);
+				const configurationChanged = vscode.workspace.onDidChangeConfiguration.mock.calls[0][0];
+				mocked.mocks.panel.setVisibility(false);
+				vscode.mockExtensionSettingReturnValue('initialLoadCommits', 123);
+				configurationChanged({ affectsConfiguration: section => section === 'git-graph' });
+				mocked.mocks.panel.setVisibility(true);
+				expect(mocked.panel.webview.html).toContain('"initialLoadCommits":123');
+				const html = mocked.panel.webview.html;
+				mocked.mocks.panel.setVisibility(false);
+				configurationChanged({ affectsConfiguration: () => false });
+				mocked.mocks.panel.setVisibility(true);
+				expect(mocked.panel.webview.html).toBe(html);
+			});
+
+			it('Restores file watching on refresh without restarting it from a response received while hidden', async () => {
+				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+				const view = GitGraphView.currentPanel!;
+				const mocked = vscode.getMockedWebviewPanel(0);
+				const start = jest.spyOn(view['repoFileWatcher'], 'start').mockImplementation(() => { });
+				const info = { branches: ['main'], head: 'main', remotes: [], stashes: [], error: null };
+				let complete!: (value: typeof info) => void;
+				jest.spyOn(dataSource, 'getRepoInfo').mockReturnValueOnce(new Promise(resolve => { complete = resolve; })).mockResolvedValueOnce(info);
+				const request: RequestMessage = { command: 'loadRepoInfo', repo: '/path/to/repo', refreshId: 1, showRemoteBranches: true, showStashes: false, hideRemotes: [] };
+				const pending = view['respondToMessage'](request);
+				mocked.mocks.panel.setVisibility(false);
+				complete(info);
+				await pending;
+				expect(start).not.toHaveBeenCalled();
+				expect(view['currentRepo']).toBeNull();
+				mocked.mocks.panel.setVisibility(true);
+				await view['respondToMessage']({ ...request, refreshId: 2 });
+				expect(start).toHaveBeenCalledTimes(1);
+				expect(start).toHaveBeenCalledWith('/path/to/repo');
 			});
 
 			it('Should ignore events if they have no effect', () => {
@@ -3603,10 +3694,9 @@ describe('GitGraphView', () => {
 			jest.spyOn(mockedWebviewPanel.panel.webview, 'postMessage').mockResolvedValueOnce(true);
 
 			// Run
-			GitGraphView.currentPanel!.dispose();
-			mockedWebviewPanel.mocks.panel.webview.onDidReceiveMessage({
-				command: 'viewScm'
-			});
+			const view = GitGraphView.currentPanel!;
+			view.dispose();
+			view['sendMessage']({ command: 'viewScm', error: null });
 
 			// Assert
 			await waitForExpect(() => {

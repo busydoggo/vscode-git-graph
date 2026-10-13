@@ -13,7 +13,7 @@ function setup(labelWidths: number[] = [100]) {
 	const dom = new JSDOM('<body><div id="view"><table id="commitTable"><tr id="tableColHeaders"></tr><tr class="commit"><td class="descriptionCell"><span class="description"><span class="commitSummary"><span class="text">Commit message</span></span><span class="commitBranches"><button class="branchLabelsHint"></button><span class="commitBranchLabels"></span><span class="branchLabelsPopup"></span></span></td></tr></table></div></body>');
 	const document = dom.window.document;
 	const View = vm.runInNewContext(script + '\nGitGraphView;', { document, getComputedStyle: dom.window.getComputedStyle });
-	const view = Object.assign(Object.create(View.prototype), { tableElem: document.getElementById('commitTable'), viewElem: document.getElementById('view') });
+	const view = Object.assign(Object.create(View.prototype), { branchLabelLayouts: new WeakMap(), tableElem: document.getElementById('commitTable'), viewElem: document.getElementById('view') });
 	let width = 300;
 	Object.defineProperty(document.querySelector('.description'), 'clientWidth', { get: () => Math.round(width) });
 	document.querySelector('.description').getBoundingClientRect = () => ({ width });
@@ -109,6 +109,16 @@ describe('Description branch labels', () => {
 		expect(labels.children).toHaveLength(1);
 		expect(popup.children).toHaveLength(0);
 		expect(view.tableElem.classList.contains('measuringBranchLabels')).toBe(false);
+	});
+
+	it('Leaves overflow labels untouched when content and available width are unchanged', () => {
+		const { document, group, popup, resize } = setup([60, 70, 80]);
+		resize(335);
+		expect(popup.children).toHaveLength(1);
+		const observer = new document.defaultView.MutationObserver(() => { });
+		observer.observe(group, { subtree: true, attributes: true, childList: true });
+		resize(335);
+		expect(observer.takeRecords()).toHaveLength(0);
 	});
 
 	it('Bounds the popup to the viewport and opens below rows too close to the header', () => {

@@ -1565,7 +1565,7 @@
 				{
 					"command": "git-graph.selectRepository",
 					"group": "navigation@0",
-					"when": "activeWebviewPanelId == git-graph"
+					"when": "activeWebviewPanelId == git-graph && git-graph:hasMultipleRepos"
 				}
 			],
 			"scm/title": [

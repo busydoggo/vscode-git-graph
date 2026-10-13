@@ -28,6 +28,7 @@ export class RepoManager extends Disposable {
 	private repos: GitRepoSet;
 	private ignoredRepos: string[];
 	private maxDepthOfRepoSearch: number;
+	private hasMultipleRepos: boolean | null = null;
 
 	private readonly folderWatchers: { [workspace: string]: vscode.FileSystemWatcher } = {};
 	private readonly configWatcher: vscode.FileSystemWatcher;
@@ -52,6 +53,7 @@ export class RepoManager extends Disposable {
 		this.repos = extensionState.getRepos();
 		this.ignoredRepos = extensionState.getIgnoredRepos();
 		this.maxDepthOfRepoSearch = getConfig().maxDepthOfRepoSearch;
+		this.updateRepoSelectionContext();
 
 		this.configWatcher = vscode.workspace.createFileSystemWatcher('**/.vscode/vscode-git-graph.json');
 		this.configWatcher.onDidCreate(this.onConfigWatcherCreateOrChange.bind(this));
@@ -121,6 +123,7 @@ export class RepoManager extends Disposable {
 
 			// Stop watching folders when disposed
 			toDisposable(() => {
+				this.updateRepoSelectionContext(0);
 				const folders = Object.keys(this.folderWatchers);
 				for (let i = 0; i < folders.length; i++) {
 					this.stopWatchingFolder(folders[i]);
@@ -317,6 +320,7 @@ export class RepoManager extends Disposable {
 			return false;
 		} else {
 			this.repos[repo] = Object.assign({}, DEFAULT_REPO_STATE);
+			this.updateRepoSelectionContext();
 			this.updateReposWorkspaceFolderIndex(repo);
 			this.extensionState.saveRepos(this.repos);
 			this.logger.log('Added new repo: ' + repo);
@@ -332,6 +336,7 @@ export class RepoManager extends Disposable {
 	 */
 	private removeRepo(repo: string) {
 		delete this.repos[repo];
+		this.updateRepoSelectionContext();
 		this.extensionState.saveRepos(this.repos);
 		this.logger.log('Removed repo: ' + repo);
 	}
@@ -363,6 +368,16 @@ export class RepoManager extends Disposable {
 			if (path === repoPaths[i]) return true;
 		}
 		return false;
+	}
+
+	/** Update native title controls immediately, even while a repository scan is still running. */
+	private updateRepoSelectionContext(numRepos: number = this.getNumRepos()) {
+		const hasMultipleRepos = numRepos > 1;
+		if (this.hasMultipleRepos === hasMultipleRepos) return;
+		this.hasMultipleRepos = hasMultipleRepos;
+		vscode.commands.executeCommand('setContext', 'git-graph:hasMultipleRepos', hasMultipleRepos).then(undefined, () => {
+			this.logger.logError('Unable to update Git Graph repository selection context');
+		});
 	}
 
 	/**
@@ -451,6 +466,7 @@ export class RepoManager extends Disposable {
 	private transferRepoState(oldRepo: string, newRepo: string) {
 		this.repos[newRepo] = this.repos[oldRepo];
 		delete this.repos[oldRepo];
+		this.updateRepoSelectionContext();
 		this.updateReposWorkspaceFolderIndex(newRepo);
 		this.extensionState.saveRepos(this.repos);
 		this.extensionState.transferRepo(oldRepo, newRepo);

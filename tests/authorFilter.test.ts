@@ -46,7 +46,7 @@ describe('Author filtering', () => {
 		const view = makeView();
 		expect(apply(view, '  aLiCe  ')).toEqual(['a', 'c']);
 		expect(view.commitLookup).toEqual({ a: 0, c: 1 });
-		expect(view.graph.loadCommits).toHaveBeenCalledWith(view.commits, 'a', { a: 0, c: 1 }, false);
+		expect(view.graph.loadCommits).toHaveBeenCalledWith(view.commits, 'a', { a: 0, c: 1 }, false, view.loadedCommits);
 		expect(view.loadedCommits).toHaveLength(5);
 	});
 
@@ -91,5 +91,85 @@ describe('Author filtering', () => {
 		expect(view.closeCommitDetails).toHaveBeenCalledWith(false);
 		view.loadedCommits.push({ hash: 'e', author: 'Alice New', parents: [] });
 		expect(Array.from(view.getAuthorFilteredCommits(view.authorFilter), (commit: any) => commit.hash)).toEqual(['a', 'c', 'e']);
+	});
+});
+
+const graphSource = fs.readFileSync(path.join(__dirname, '../web/graph.ts'), 'utf8');
+const GraphClass = vm.runInNewContext(ts.transpileModule(graphSource, {
+	compilerOptions: { target: ts.ScriptTarget.ES2015 }
+}).outputText + '\nGraph;', { UNCOMMITTED: '*' });
+
+function graphCommit(hash: string, author: string, parents: string[]) {
+	return { hash, author, parents, stash: null };
+}
+
+function loadFilteredGraph(commits: any[], firstParent: boolean = false) {
+	const view = makeView();
+	view.loadedCommits = commits;
+	view.commits = commits;
+	view.currentBranches = ['main'];
+	view.onlyFollowFirstParent = firstParent;
+	view.graph = Object.assign(Object.create(GraphClass.prototype), {
+		config: { grid: { offsetX: 0, x: 16 } }
+	});
+	apply(view, 'Alice');
+	return view;
+}
+
+describe('Author filtering within selected branches', () => {
+	it('Connects visible ancestors on one lane and restores the selected branch when cleared', () => {
+		const commits = [graphCommit('a', 'Alice', ['b']), graphCommit('b', 'Bob', ['c']), graphCommit('c', 'Alice', [])];
+		const original = JSON.stringify(commits);
+		const view = loadFilteredGraph(commits);
+		expect(view.graph.getFirstParentIndex(0)).toBe(1);
+		expect(view.graph.branches).toHaveLength(1);
+		expect(view.currentBranches).toEqual(['main']);
+		expect(apply(view, '')).toEqual(['a', 'b', 'c']);
+		expect(view.currentBranches).toEqual(['main']);
+		expect(view.graph.getFirstParentIndex(0)).toBe(1);
+		expect(view.graph.getFirstParentIndex(1)).toBe(2);
+		expect(JSON.stringify(commits)).toBe(original);
+	});
+
+	it('Preserves merge paths through hidden authors and deduplicates shared ancestors', () => {
+		const view = loadFilteredGraph([
+			graphCommit('a', 'Alice', ['merge']), graphCommit('merge', 'Bob', ['left', 'right', 'duplicate']),
+			graphCommit('left', 'Alice', ['root']), graphCommit('right', 'Alice', ['root']),
+			graphCommit('duplicate', 'Bob', ['left']), graphCommit('root', 'Alice', [])
+		]);
+		expect(Array.from(view.graph.vertices[0].getParents(), (parent: any) => parent.id)).toEqual([1, 2]);
+		expect(view.graph.getFirstParentIndex(1)).toBe(3);
+		expect(view.graph.getFirstParentIndex(2)).toBe(3);
+	});
+
+	it('Follows only the first parent through a hidden merge when requested', () => {
+		const view = loadFilteredGraph([
+			graphCommit('a', 'Alice', ['merge']), graphCommit('merge', 'Bob', ['left', 'right']),
+			graphCommit('left', 'Alice', []), graphCommit('right', 'Alice', [])
+		], true);
+		expect(Array.from(view.graph.vertices[0].getParents(), (parent: any) => parent.id)).toEqual([1]);
+	});
+
+	it('Keeps unloaded history boundaries without inventing connections to unrelated commits', () => {
+		const view = loadFilteredGraph([
+			graphCommit('a', 'Alice', ['hidden']), graphCommit('hidden', 'Bob', ['outside-selection']),
+			graphCommit('unrelated', 'Alice', [])
+		]);
+		expect(view.graph.getFirstParentIndex(0)).toBe(-1);
+		expect(view.graph.vertices[1].getChildren()).toHaveLength(0);
+	});
+
+	it('Ends a path at a hidden root instead of drawing a dangling branch', () => {
+		const view = loadFilteredGraph([graphCommit('a', 'Alice', ['root']), graphCommit('root', 'Bob', [])]);
+		expect(view.graph.vertices[0].getParents()).toHaveLength(0);
+	});
+
+	it('Traverses long runs of hidden commits without recursive stack growth', () => {
+		const commits = [graphCommit('a', 'Alice', ['hidden0'])];
+		for (let i = 0; i < 15000; i++) commits.push(graphCommit('hidden' + i, 'Bob', [i === 14999 ? 'root' : 'hidden' + (i + 1)]));
+		commits.push(graphCommit('root', 'Alice', []));
+		const view = loadFilteredGraph(commits);
+		expect(view.graph.getFirstParentIndex(0)).toBe(1);
+		expect(view.graph.branches).toHaveLength(1);
 	});
 });

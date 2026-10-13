@@ -356,7 +356,7 @@ class Graph {
 	private readonly gradientStop2: SVGStopElement;
 	private group: SVGGElement | null = null;
 
-	private tooltipId: number = -1;
+	private tooltipCommitElem: HTMLElement | null = null;
 	private tooltipElem: HTMLElement | null = null;
 	private tooltipTimeout: NodeJS.Timer | null = null;
 	private tooltipVertex: HTMLElement | null = null;
@@ -390,7 +390,7 @@ class Graph {
 
 	/* Graph Operations */
 
-	public loadCommits(commits: ReadonlyArray<GG.GitCommit>, commitHead: string | null, commitLookup: { [hash: string]: number }, onlyFollowFirstParent: boolean) {
+	public loadCommits(commits: ReadonlyArray<GG.GitCommit>, commitHead: string | null, commitLookup: { [hash: string]: number }, onlyFollowFirstParent: boolean, unfilteredCommits: ReadonlyArray<GG.GitCommit> = commits) {
 		this.commits = commits;
 		this.commitHead = commitHead;
 		this.commitLookup = commitLookup;
@@ -405,18 +405,54 @@ class Graph {
 		for (i = 0; i < commits.length; i++) {
 			this.vertices.push(new Vertex(i, commits[i].stash !== null));
 		}
+		// Hidden authors must not turn each visible commit into a separate branch.
+		// Only traverse commits from the currently loaded branch selection.
+		const hiddenCommits = new Map(unfilteredCommits
+			.filter(commit => typeof commitLookup[commit.hash] !== 'number')
+			.map(commit => [commit.hash, commit] as [string, GG.GitCommit]));
 		for (i = 0; i < commits.length; i++) {
+			if (hiddenCommits.size === 0) {
+				// Preserve the original graph (including separate unloaded merge paths).
+				for (j = 0; j < commits[i].parents.length; j++) {
+					const parentIndex = commitLookup[commits[i].parents[j]];
+					if (typeof parentIndex === 'number') {
+						this.vertices[i].addParent(this.vertices[parentIndex]);
+						this.vertices[parentIndex].addChild(this.vertices[i]);
+					} else if (!this.onlyFollowFirstParent || j === 0) {
+						this.vertices[i].addParent(nullVertex);
+					}
+				}
+				continue;
+			}
+			const parents = new Set<Vertex>();
+			const visited = new Set<string>();
 			for (j = 0; j < commits[i].parents.length; j++) {
-				let parentHash = commits[i].parents[j];
-				if (typeof commitLookup[parentHash] === 'number') {
-					// Parent is the <commitLookup[parentHash]>th vertex
-					this.vertices[i].addParent(this.vertices[commitLookup[parentHash]]);
-					this.vertices[commitLookup[parentHash]].addChild(this.vertices[i]);
-				} else if (!this.onlyFollowFirstParent || j === 0) {
-					// Parent is not one of the vertices of the graph, and the parent isn't being hidden by the onlyFollowFirstParent condition.
-					this.vertices[i].addParent(nullVertex);
+				const parentHash = commits[i].parents[j];
+				if (this.onlyFollowFirstParent && j > 0 && typeof commitLookup[parentHash] !== 'number') continue;
+				const pending = [parentHash];
+				while (pending.length > 0) {
+					const hash = pending.pop()!;
+					if (visited.has(hash)) continue;
+					visited.add(hash);
+					if (typeof commitLookup[hash] === 'number') {
+						parents.add(this.vertices[commitLookup[hash]]);
+					} else {
+						const hidden = hiddenCommits.get(hash);
+						if (hidden) {
+							// Walk first parents first, retaining merge paths without duplicate edges.
+							const ancestors = this.onlyFollowFirstParent ? hidden.parents.slice(0, 1) : hidden.parents;
+							for (let k = ancestors.length - 1; k >= 0; k--) pending.push(ancestors[k]);
+						} else {
+							// The ancestry continues beyond the loaded history.
+							parents.add(nullVertex);
+						}
+					}
 				}
 			}
+			parents.forEach(parent => {
+				this.vertices[i].addParent(parent);
+				if (parent !== nullVertex) parent.addChild(this.vertices[i]);
+			});
 		}
 
 		if (commits[0].hash === UNCOMMITTED) {
@@ -453,9 +489,32 @@ class Graph {
 			this.vertices[i].draw(group, this.config, expandedCommit !== null && i > expandedCommit.index, overListener, outListener);
 		}
 
-		if (this.group !== null) this.svg.removeChild(this.group);
-		this.svg.appendChild(group);
-		this.group = group;
+		let pathIndex = 0, vertexKey = '';
+		Array.from(group.children).forEach(element => {
+			if (element.tagName === 'circle') {
+				const id = (<SVGElement>element).dataset.id;
+				if (id !== undefined) vertexKey = 'commit:' + this.commits[parseInt(id)].hash;
+				element.setAttribute('data-key', vertexKey + (id === undefined ? ':inner' : ':outer'));
+			} else {
+				element.setAttribute('data-key', 'path:' + pathIndex++);
+			}
+		});
+		if (this.group === null) {
+			this.svg.appendChild(group);
+			this.group = group;
+		} else {
+			const existing = new Map(Array.from(this.group.children, element => [element.getAttribute('data-key')!, element] as [string, Element]));
+			let cursor = this.group.firstElementChild;
+			Array.from(group.children).forEach(next => {
+				const key = next.getAttribute('data-key')!;
+				const element = existing.get(key) || next;
+				if (element !== next) syncRenderedAttributes(element, next);
+				if (element !== cursor) this.group!.insertBefore(element, cursor);
+				cursor = element.nextElementSibling;
+				existing.delete(key);
+			});
+			existing.forEach(element => element.remove());
+		}
 		this.setDimensions(contentWidth, this.getHeight(expandedCommit));
 		this.applyMaxWidth(contentWidth);
 		this.closeTooltip();
@@ -681,22 +740,22 @@ class Graph {
 
 	private setDimensions(contentWidth: number, height: number) {
 		this.setSvgWidth(contentWidth);
-		this.svg.setAttribute('height', height.toString());
-		this.maskRect.setAttribute('width', contentWidth.toString());
-		this.maskRect.setAttribute('height', height.toString());
+		if (this.svg.getAttribute('height') !== height.toString()) this.svg.setAttribute('height', height.toString());
+		if (this.maskRect.getAttribute('width') !== contentWidth.toString()) this.maskRect.setAttribute('width', contentWidth.toString());
+		if (this.maskRect.getAttribute('height') !== height.toString()) this.maskRect.setAttribute('height', height.toString());
 	}
 
 	private applyMaxWidth(contentWidth: number) {
 		this.setSvgWidth(contentWidth);
 		let offset1 = this.maxWidth > -1 ? (this.maxWidth - 12) / contentWidth : 1;
 		let offset2 = this.maxWidth > -1 ? this.maxWidth / contentWidth : 1;
-		this.gradientStop1.setAttribute('offset', offset1.toString());
-		this.gradientStop2.setAttribute('offset', offset2.toString());
+		if (this.gradientStop1.getAttribute('offset') !== offset1.toString()) this.gradientStop1.setAttribute('offset', offset1.toString());
+		if (this.gradientStop2.getAttribute('offset') !== offset2.toString()) this.gradientStop2.setAttribute('offset', offset2.toString());
 	}
 
 	private setSvgWidth(contentWidth: number) {
 		let width = this.maxWidth > -1 ? Math.min(contentWidth, this.maxWidth) : contentWidth;
-		this.svg.setAttribute('width', width.toString());
+		if (this.svg.getAttribute('width') !== width.toString()) this.svg.setAttribute('width', width.toString());
 	}
 
 
@@ -781,8 +840,7 @@ class Graph {
 
 		const vertexElem = <HTMLElement>event.target;
 		const id = parseInt(vertexElem.dataset.id!);
-		this.tooltipId = id;
-		const commitElem = findCommitElemWithId(getCommitElems(), id);
+		const commitElem = this.tooltipCommitElem = findCommitElemWithId(getCommitElems(), id);
 		if (commitElem !== null) commitElem.classList.add(CLASS_GRAPH_VERTEX_ACTIVE);
 
 		if (id < this.commits.length && this.commits[id].hash !== UNCOMMITTED) { // Only show tooltip for commits (not the uncommitted changes)
@@ -889,10 +947,9 @@ class Graph {
 	}
 
 	private closeTooltip() {
-		if (this.tooltipId > -1) {
-			const commitElem = findCommitElemWithId(getCommitElems(), this.tooltipId);
-			if (commitElem !== null) commitElem.classList.remove(CLASS_GRAPH_VERTEX_ACTIVE);
-			this.tooltipId = -1;
+		if (this.tooltipCommitElem !== null) {
+			this.tooltipCommitElem.classList.remove(CLASS_GRAPH_VERTEX_ACTIVE);
+			this.tooltipCommitElem = null;
 		}
 
 		if (this.tooltipElem !== null) {
