@@ -337,6 +337,15 @@ export class DataSource extends Disposable {
 
 	/* Get Data Methods - Commit Details View */
 
+	/** Return the complete patch for the revisions displayed in the details view. */
+	public getCommitDiff(repo: string, fromHash: string | null, toHash: string, contextLines: number = 999999999): Promise<string> {
+		const options = ['--no-color', '--no-ext-diff', '--no-textconv', '--find-renames', '-U' + contextLines];
+		const args = fromHash === null
+			? ['diff-tree', '--root', '--no-commit-id', '--patch', '-r', ...options, toHash, '--']
+			: ['diff', ...options, fromHash, ...(toHash !== UNCOMMITTED ? [toHash] : []), '--'];
+		return this.spawnGit(args, repo, stdout => stdout);
+	}
+
 	/**
 	 * Get the commit details for the Commit Details View.
 	 * @param repo The path of the repository.

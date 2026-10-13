@@ -41,6 +41,7 @@ class GitGraphView {
 	private scrollTop = 0;
 	private renderedGitBranchHead: string | null = null;
 	private readonly tableRenderer = new CommitTableRenderer();
+	private copyCommitDiffInProgress: boolean = false;
 	private commitDetailsRenderState: { element: HTMLElement, controls: string } | null = null;
 	private branchLabelLayouts = new WeakMap<HTMLElement, { width: number, content: string }>();
 
@@ -2787,6 +2788,7 @@ class GitGraphView {
 			html += '</div><div id="cdvFiles">' + generateFileViewHtml(expandedCommit.fileTree!, expandedCommit.fileChanges!, expandedCommit.lastViewedFile, expandedCommit.contextMenuOpen.fileView, this.getFileViewType(), commitOrder.to === UNCOMMITTED) + '</div><div id="cdvDivider"></div>';
 		}
 		html += '</div><div id="cdvControls"><div id="cdvClose" class="cdvControlBtn" title="Close">' + SVG_ICONS.close + '</div>' +
+			(!expandedCommit.loading ? '<button id="cdvCopyDiff" type="button" class="cdvControlBtn" aria-label="Copy diff to clipboard">' + SVG_ICONS.copy + '</button>' : '') +
 			(codeReviewPossible ? '<div id="cdvCodeReview" class="cdvControlBtn">' + SVG_ICONS.review + '</div>' : '') +
 			(!expandedCommit.loading ? '<div id="cdvFileViewTypeTree" class="cdvControlBtn cdvFileViewTypeBtn" title="File Tree View">' + SVG_ICONS.fileTree + '</div><div id="cdvFileViewTypeList" class="cdvControlBtn cdvFileViewTypeBtn" title="File List View">' + SVG_ICONS.fileList + '</div>' : '') +
 			(externalDiffPossible ? '<div id="cdvExternalDiff" class="cdvControlBtn">' + SVG_ICONS.linkExternal + '</div>' : '') +
@@ -2811,6 +2813,7 @@ class GitGraphView {
 			this.renderCdvFileViewTypeBtns();
 			this.renderCdvExternalDiffBtn();
 			this.renderCodeReviewBtn();
+			this.updateCopyCommitDiffButton();
 			return;
 		}
 		this.commitDetailsRenderState = { element: elem, controls };
@@ -2853,6 +2856,8 @@ class GitGraphView {
 		});
 
 		if (!expandedCommit.loading) {
+			document.getElementById('cdvCopyDiff')!.addEventListener('click', () => this.copyExpandedCommitDiff());
+			this.updateCopyCommitDiffButton();
 			this.makeCdvFileViewInteractive();
 			this.renderCdvFileViewTypeBtns();
 			this.renderCdvExternalDiffBtn();
@@ -2924,6 +2929,32 @@ class GitGraphView {
 				});
 			}
 		}
+	}
+
+	private copyExpandedCommitDiff() {
+		const expandedCommit = this.expandedCommit;
+		if (expandedCommit === null || expandedCommit.loading || this.copyCommitDiffInProgress) return;
+		const commit = this.commits[this.commitLookup[expandedCommit.commitHash]];
+		if (!commit) return;
+		const order = expandedCommit.compareWithHash !== null
+			? this.getCommitOrder(expandedCommit.commitHash, expandedCommit.compareWithHash)
+			: { from: commit.hash === UNCOMMITTED ? 'HEAD' : commit.stash !== null ? commit.stash.baseHash : expandedCommit.commitDetails!.parents[0] || null, to: commit.hash };
+		this.copyCommitDiffInProgress = true;
+		this.updateCopyCommitDiffButton();
+		sendMessage({ command: 'copyCommitDiff', repo: this.currentRepo, fromHash: order.from, toHash: order.to });
+	}
+
+	public finishCopyCommitDiff() {
+		this.copyCommitDiffInProgress = false;
+		this.updateCopyCommitDiffButton();
+	}
+
+	private updateCopyCommitDiffButton() {
+		const button = <HTMLButtonElement | null>document.getElementById('cdvCopyDiff');
+		if (button === null) return;
+		if (button.disabled !== this.copyCommitDiffInProgress) button.disabled = this.copyCommitDiffInProgress;
+		const title = this.copyCommitDiffInProgress ? 'Copying diff...' : 'Copy diff to clipboard (-U999999999)';
+		if (button.title !== title) button.title = title;
 	}
 
 	private setCdvHeight(elem: HTMLElement, isDocked: boolean) {
@@ -3472,6 +3503,10 @@ window.addEventListener('load', () => {
 					gitGraph.closeCommitComparison(true);
 					dialog.showError('Unable to load Commit Comparison', msg.error, null, null);
 				}
+				break;
+			case 'copyCommitDiff':
+				gitGraph.finishCopyCommitDiff();
+				finishOrDisplayError(msg.error, 'Unable to Copy Diff to Clipboard');
 				break;
 			case 'copyFilePath':
 				finishOrDisplayError(msg.error, 'Unable to Copy File Path to Clipboard');

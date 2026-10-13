@@ -295,6 +295,17 @@ export class GitGraphView extends Disposable {
 					refresh: msg.refresh
 				});
 				break;
+			case 'copyCommitDiff': {
+				let error: ErrorInfo;
+				try {
+					const diff = await this.dataSource.getCommitDiff(msg.repo, msg.fromHash, msg.toHash);
+					error = await copyToClipboard(diff);
+				} catch (reason) {
+					error = String(reason);
+				}
+				this.sendMessage({ command: 'copyCommitDiff', error });
+				break;
+			}
 			case 'copyFilePath':
 				this.sendMessage({
 					command: 'copyFilePath',

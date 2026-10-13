@@ -711,6 +711,15 @@ export interface ResponseCompareCommits extends ResponseWithErrorInfo {
 	readonly refresh: boolean;
 }
 
+export interface RequestCopyCommitDiff extends RepoRequest {
+	readonly command: 'copyCommitDiff';
+	readonly fromHash: string | null;
+	readonly toHash: string;
+}
+export interface ResponseCopyCommitDiff extends ResponseWithErrorInfo {
+	readonly command: 'copyCommitDiff';
+}
+
 export interface RequestCopyFilePath extends RepoRequest {
 	readonly command: 'copyFilePath';
 	readonly filePath: string;
@@ -1284,6 +1293,7 @@ export type RequestMessage =
 	| RequestCleanUntrackedFiles
 	| RequestCommitDetails
 	| RequestCompareCommits
+	| RequestCopyCommitDiff
 	| RequestCopyFilePath
 	| RequestCopyToClipboard
 	| RequestCreateArchive
@@ -1350,6 +1360,7 @@ export type ResponseMessage =
 	| ResponseCleanUntrackedFiles
 	| ResponseCompareCommits
 	| ResponseCommitDetails
+	| ResponseCopyCommitDiff
 	| ResponseCopyFilePath
 	| ResponseCopyToClipboard
 	| ResponseCreateArchive

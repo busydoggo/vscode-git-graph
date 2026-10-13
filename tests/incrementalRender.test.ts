@@ -17,7 +17,7 @@ function commit(hash: string, parents: string[] = [], message: string = 'Fix ' +
 
 function setup(commits = [commit('a', ['b']), commit('b')]) {
 	const dom = new JSDOM('<body><div id="view"><div id="content"><div id="commitGraph"></div><div id="commitTable"></div></div><div id="footer"></div></div></body>');
-	const document = dom.window.document;
+	const document = dom.window.document, sent = jest.fn();
 	dom.window.HTMLElement.prototype.scroll = function (this: any, _x: number, y: number) { this.scrollTop = y; };
 	const config = {
 		fetchAvatars: false, markdown: false, dateFormat: { type: 0, iso: true },
@@ -27,7 +27,7 @@ function setup(commits = [commit('a', ['b']), commit('b')]) {
 	};
 	const { View, Graph, FindWidget, Renderer } = vm.runInNewContext(script + '\n({View: GitGraphView, Graph, FindWidget, Renderer: CommitTableRenderer});', {
 		document, window: dom.window, getComputedStyle: dom.window.getComputedStyle, setTimeout: jest.fn(), clearTimeout: jest.fn(),
-		initialState: { config }, acquireVsCodeApi: () => ({}),
+		initialState: { config }, acquireVsCodeApi: () => ({ postMessage: sent }),
 		GG: { FileViewType: { List: 1 }, GitFileStatus: { Modified: 'M' }, DateFormatType: { DateAndTime: 0, DateOnly: 1 }, GraphStyle: { Angular: 0 }, GraphUncommittedChangesStyle: { OpenCircleAtTheUncommittedChanges: 0, OpenCircleAtTheCheckedOutCommit: 1 } },
 		CLASS_INTERNAL_URL: 'internalUrl', CLASS_EXTERNAL_URL: 'externalUrl',
 		TextFormatter: class { public format(value: string) { return value; } },
@@ -37,7 +37,7 @@ function setup(commits = [commit('a', ['b']), commit('b')]) {
 		commits, loadedCommits: commits, commitLookup: {}, commitHead: 'a', gitBranchHead: 'main',
 		authorFilter: '', currentRepo: '/repo', gitRepos: { '/repo': { issueLinkingConfig: null } }, config, avatars: {},
 		viewElem: document.getElementById('view'), tableElem: document.getElementById('commitTable'), footerElem: document.getElementById('footer'),
-		tableRenderer: new Renderer(), branchLabelLayouts: new WeakMap(), commitDetailsRenderState: null, gitConfig: null,
+		tableRenderer: new Renderer(), branchLabelLayouts: new WeakMap(), commitDetailsRenderState: null, copyCommitDiffInProgress: false, gitConfig: null,
 		authorFilterInput: document.createElement('input'), authorFilterWidget: document.createElement('div'), authorFilterClear: document.createElement('button'),
 		expandedCommit: null, moreCommitsAvailable: true, graphHeaderResizeObserver: null,
 		branchDropdown: { mount: jest.fn(), refresh: jest.fn() }, makeTableResizable: jest.fn(), updateGraphHeaderLayout: jest.fn(),
@@ -58,7 +58,17 @@ function setup(commits = [commit('a', ['b']), commit('b')]) {
 		view.graph.render(view.expandedCommit);
 	};
 	update();
-	return { dom, document, view, update, renderDetails: () => View.prototype.renderCommitDetailsView.call(view, true), row: (hash: string) => document.querySelector('tr[data-hash="' + hash + '"]') };
+	return { dom, document, view, sent, update, renderDetails: () => View.prototype.renderCommitDetailsView.call(view, true), row: (hash: string) => document.querySelector('tr[data-hash="' + hash + '"]') };
+}
+
+function openDetails(view: any, row: (hash: string) => any, hash: string, parents: string[] = ['b']) {
+	view.expandedCommit = {
+		index: view.commitLookup[hash], commitHash: hash, commitElem: row(hash), compareWithHash: null, compareWithElem: null, loading: false,
+		commitDetails: { hash, parents, author: 'Alice', authorEmail: '', authorDate: 1700000000, committer: 'Alice', committerEmail: '', committerDate: 1700000000, signature: null, body: 'Commit body' },
+		fileChanges: [], fileTree: { type: 'folder', name: '', folderPath: '', open: true, reviewed: true, contents: {} },
+		avatar: null, codeReview: null, lastViewedFile: null, contextMenuOpen: { summary: false, fileView: -1 }, scrollTop: { summary: 0, fileView: 0 }
+	};
+	view.renderGraph = jest.fn();
 }
 
 describe('Incremental Git Graph rendering', () => {
@@ -290,6 +300,53 @@ describe('Incremental Git Graph rendering', () => {
 		view.closeCommitDetails = jest.fn();
 		close.click();
 		expect(view.closeCommitDetails).toHaveBeenCalledTimes(1);
+	});
+
+	it.each([
+		{ hash: 'a', parents: ['b', 'other-parent'], fromHash: 'b' },
+		{ hash: 'b', parents: [], fromHash: null },
+		{ hash: '*', parents: [], fromHash: 'HEAD' }
+	])('Copies the displayed commit with the correct base (%j)', ({ hash, parents, fromHash }) => {
+		const { document, view, row, sent, renderDetails } = setup(hash === '*' ? [commit('*', ['a']), commit('a')] : undefined);
+		openDetails(view, row, hash, parents);
+		renderDetails();
+		const button = document.getElementById('cdvCopyDiff');
+		expect(button.querySelector('svg')).not.toBeNull();
+		expect(button.title).toContain('-U999999999');
+		renderDetails();
+		expect(document.getElementById('cdvCopyDiff')).toBe(button);
+		button.click();
+		view.copyExpandedCommitDiff();
+		expect(sent).toHaveBeenCalledTimes(1);
+		expect(sent).toHaveBeenLastCalledWith({ command: 'copyCommitDiff', repo: '/repo', fromHash, toHash: hash });
+		expect(button.disabled).toBe(true);
+		view.finishCopyCommitDiff();
+		expect(button.disabled).toBe(false);
+		button.click();
+		expect(sent).toHaveBeenCalledTimes(2);
+	});
+
+	it.each(['a', 'b'])('Copies comparisons in their displayed order (open commit: %s)', hash => {
+		const { document, view, row, sent, renderDetails } = setup();
+		openDetails(view, row, hash);
+		view.expandedCommit.compareWithHash = hash === 'a' ? 'b' : 'a';
+		view.expandedCommit.compareWithElem = row(view.expandedCommit.compareWithHash);
+		renderDetails();
+		document.getElementById('cdvCopyDiff').click();
+		expect(sent).toHaveBeenLastCalledWith({ command: 'copyCommitDiff', repo: '/repo', fromHash: 'b', toHash: 'a' });
+	});
+
+	it('Shows the copy button after details finish loading', () => {
+		const { document, view, row, sent, renderDetails } = setup();
+		openDetails(view, row, 'a');
+		view.expandedCommit.loading = true;
+		renderDetails();
+		expect(document.getElementById('cdvCopyDiff')).toBeNull();
+		view.copyExpandedCommitDiff();
+		expect(sent).not.toHaveBeenCalled();
+		view.expandedCommit.loading = false;
+		renderDetails();
+		expect(document.getElementById('cdvCopyDiff')).not.toBeNull();
 	});
 
 	it('Keeps the visible commit anchored when commits arrive above the viewport', () => {

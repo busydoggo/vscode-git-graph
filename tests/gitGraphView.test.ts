@@ -1280,6 +1280,37 @@ describe('GitGraphView', () => {
 			});
 		});
 
+		describe('copyCommitDiff', () => {
+			it.each([{ fromHash: 'parent' }, { fromHash: null }])('Copies the exact Git patch, including root commits (%j)', async ({ fromHash }) => {
+				const patch = 'diff --git a/file b/file\n@@ -1,2 +1,2 @@\n context\n+中文\n';
+				const getDiff = jest.spyOn(dataSource, 'getCommitDiff').mockResolvedValueOnce(patch);
+				const copy = jest.spyOn(utils, 'copyToClipboard').mockResolvedValueOnce(null);
+				onDidReceiveMessage({ command: 'copyCommitDiff', repo: '/path/to/repo', fromHash, toHash: 'commit' });
+				await waitForExpect(() => {
+					expect(getDiff).toHaveBeenCalledWith('/path/to/repo', fromHash, 'commit');
+					expect(copy).toHaveBeenCalledWith(patch);
+					expect(messages).toStrictEqual([{ command: 'copyCommitDiff', error: null }]);
+				});
+			});
+
+			it('Reports a Git error without overwriting the clipboard', async () => {
+				jest.spyOn(dataSource, 'getCommitDiff').mockRejectedValueOnce('Unable to read commit');
+				const copy = jest.spyOn(utils, 'copyToClipboard');
+				onDidReceiveMessage({ command: 'copyCommitDiff', repo: '/path/to/repo', fromHash: 'parent', toHash: 'commit' });
+				await waitForExpect(() => {
+					expect(messages).toStrictEqual([{ command: 'copyCommitDiff', error: 'Unable to read commit' }]);
+					expect(copy).not.toHaveBeenCalled();
+				});
+			});
+
+			it('Reports failure to write the clipboard', async () => {
+				jest.spyOn(dataSource, 'getCommitDiff').mockResolvedValueOnce('patch');
+				jest.spyOn(utils, 'copyToClipboard').mockResolvedValueOnce('Clipboard is unavailable');
+				onDidReceiveMessage({ command: 'copyCommitDiff', repo: '/path/to/repo', fromHash: 'parent', toHash: 'commit' });
+				await waitForExpect(() => expect(messages).toStrictEqual([{ command: 'copyCommitDiff', error: 'Clipboard is unavailable' }]));
+			});
+		});
+
 		describe('copyToClipboard', () => {
 			it('Should copy text to the clipboard', async () => {
 				// Setup

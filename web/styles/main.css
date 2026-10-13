@@ -363,6 +363,17 @@ code{
 	background-color:rgba(128,128,128,0.35);
 }
 
+#cdvCopyDiff{
+	display:block;
+	padding:0;
+	border:0;
+	background:none;
+}
+#cdvCopyDiff:disabled{
+	cursor:wait;
+	opacity:0.5;
+}
+
 #cdvCodeReview{
 	border-radius:4px;
 }

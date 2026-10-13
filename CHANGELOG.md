@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.31.0 - 2026-10-14
+* Added a Copy Diff button to the Commit Details and Comparison Views, which copies the Git patch to the clipboard with `-U999999999` context.
+* Supports initial commits, commit comparisons, and uncommitted changes.
+
 ## 1.30.0 - 2021-04-05
 * #395 Added a "Force Fetch" option onto the "Fetch into Local Branch" Dialog, allowing any local branch (that's not checked out) to be reset to the remote branch. This dialog is accessed via the Remote Branch Context Menu.
 * #457 New "View Diff with Working File" action on the File Context Menu in the Commit Details View.
