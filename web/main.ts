@@ -2169,8 +2169,8 @@ class GitGraphView {
 			selectionBackgroundColor = !!getVSCodeStyle(CSS_PROP_SELECTION_BACKGROUND);
 
 		const setFlashColour = (colour: string) => {
-			document.body.style.setProperty('--git-graph-flashPrimary', modifyColourOpacity(colour, 0.7));
-			document.body.style.setProperty('--git-graph-flashSecondary', modifyColourOpacity(colour, 0.5));
+			document.body.style.setProperty('--vs-git-graph-flashPrimary', modifyColourOpacity(colour, 0.7));
+			document.body.style.setProperty('--vs-git-graph-flashSecondary', modifyColourOpacity(colour, 0.5));
 		};
 		const setSelectionBackgroundColorExists = () => {
 			alterClass(document.body, 'selection-background-color-exists', selectionBackgroundColor);

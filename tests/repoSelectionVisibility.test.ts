@@ -12,7 +12,7 @@ import { GitRepoSet } from '../src/types';
 import { EventEmitter } from '../src/utils/event';
 import { mockRepoState } from './helpers/utils';
 
-const contextKey = 'git-graph:hasMultipleRepos';
+const contextKey = 'vs-git-graph:hasMultipleRepos';
 const resources: { dispose: () => void }[] = [];
 
 function setup(repos: GitRepoSet = {}) {
@@ -83,7 +83,7 @@ describe('Repository title button visibility', () => {
 
 	it('Requires multiple repositories for the native editor title button', () => {
 		const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
-		const button = manifest.contributes.menus['editor/title'].find((entry: any) => entry.command === 'git-graph.selectRepository');
-		expect(button.when).toBe('activeWebviewPanelId == git-graph && git-graph:hasMultipleRepos');
+		const button = manifest.contributes.menus['editor/title'].find((entry: any) => entry.command === 'vs-git-graph.selectRepository');
+		expect(button.when).toBe('activeWebviewPanelId == vs-git-graph && vs-git-graph:hasMultipleRepos');
 	});
 });

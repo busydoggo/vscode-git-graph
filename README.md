@@ -2,7 +2,7 @@
 
 View a Git Graph of your repository, and easily perform Git actions from the graph. Configurable to look the way you want!
 
-![Recording of Git Graph](https://github.com/mhutchie/vscode-git-graph/raw/master/resources/demo.gif)
+![Recording of Git Graph](https://github.com/busydog/vscode-vs-git-graph/raw/master/resources/demo.gif)
 
 ## Features
 
@@ -39,7 +39,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
     * Filter the branches shown in Git Graph using the 'Branches' dropdown menu. The options for filtering the branches are:
         * Show All branches
         * Select one or more branches to be viewed
-        * Select from a user predefined array of custom glob patterns (by setting `git-graph.customBranchGlobPatterns`)
+        * Select from a user predefined array of custom glob patterns (by setting `vs-git-graph.customBranchGlobPatterns`)
     * Fetch from Remote(s) _(available on the top control bar)_
     * Search directly in the Description header to highlight matching descriptions, jump between matches with the up/down buttons, and clear the search with ×.
     * Repository Settings Widget:
@@ -47,7 +47,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * Configure "Issue Linking" - Converts issue numbers in commit messages into hyperlinks, that open the issue in your issue tracking system.
         * Configure "Pull Request Creation" - Automates the opening and pre-filling of a Pull Request form, directly from a branches context menu.
             * Support for the publicly hosted Bitbucket, GitHub and GitLab Pull Request providers is built-in.
-            * Custom Pull Request providers can be configured using the Extension Setting `git-graph.customPullRequestProviders` (e.g. for use with privately hosted Pull Request providers). Information on how to configure custom providers is available [here](https://github.com/mhutchie/vscode-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
+            * Custom Pull Request providers can be configured using the Extension Setting `vs-git-graph.customPullRequestProviders` (e.g. for use with privately hosted Pull Request providers). Information on how to configure custom providers is available [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
         * Export your Git Graph Repository Configuration to a file that can be committed in the repository. It allows others working in the same repository to automatically use the same Git Graph configuration.
     * Keyboard Shortcuts (available in the Git Graph View):
         * `CTRL/CMD + F`: Focus the Description search field.
@@ -62,14 +62,14 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * `Enter`: If a dialog is open, pressing enter submits the dialog, taking the primary (left) action.
         * `Escape`: Closes the active dialog, context menu or the Commit Details View.
     * Resize the width of each column, and show/hide the Date, Author & Commit columns.
-    * Common Emoji Shortcodes are automatically replaced with the corresponding emoji in commit messages (including all [gitmoji](https://gitmoji.carloscuesta.me/)). Custom Emoji Shortcode mappings can be defined in `git-graph.customEmojiShortcodeMappings`.
+    * Common Emoji Shortcodes are automatically replaced with the corresponding emoji in commit messages (including all [gitmoji](https://gitmoji.carloscuesta.me/)). Custom Emoji Shortcode mappings can be defined in `vs-git-graph.customEmojiShortcodeMappings`.
 * A broad range of configurable settings (e.g. graph style, branch colours, and more...). See the 'Extension Settings' section below for more information.
 * "Git Graph" launch button in the Status Bar
 * "Git Graph: View Git Graph" launch command in the Command Palette
 
 ## Extension Settings
 
-Detailed information of all Git Graph settings is available [here](https://github.com/mhutchie/vscode-git-graph/wiki/Extension-Settings), including: descriptions, screenshots, default values and types.
+Detailed information of all Git Graph settings is available [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Extension-Settings), including: descriptions, screenshots, default values and types.
 
 A summary of the Git Graph extension settings are:
 * **Commit Details View**:
@@ -79,10 +79,10 @@ A summary of the Git Graph extension settings are:
             * **Compact Folders**: Render the File Tree in the Commit Details View in a compacted form, such that folders with a single child folder are compressed into a single combined folder element.
         * **Type**: Sets the default type of File View used in the Commit Details View.
     * **Location**: Specifies where the Commit Details View is rendered in the Git Graph View.
-* **Context Menu Actions Visibility**: Customise which context menu actions are visible. For more information, see the documentation [here](https://github.com/mhutchie/vscode-git-graph/wiki/Extension-Settings#context-menu-actions-visibility).
+* **Context Menu Actions Visibility**: Customise which context menu actions are visible. For more information, see the documentation [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Extension-Settings#context-menu-actions-visibility).
 * **Custom Branch Glob Patterns**: An array of Custom Glob Patterns to be shown in the "Branches" dropdown. Example: `[{"name":"Feature Requests", "glob":"heads/feature/*"}]`
 * **Custom Emoji Shortcode Mappings**: An array of custom Emoji Shortcode mappings. Example: `[{"shortcode": ":sparkles:", "emoji":"✨"}]`
-* **Custom Pull Request Providers**: An array of custom Pull Request providers that can be used in the "Pull Request Creation" Integration. For information on how to configure this setting, see the documentation [here](https://github.com/mhutchie/vscode-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
+* **Custom Pull Request Providers**: An array of custom Pull Request providers that can be used in the "Pull Request Creation" Integration. For information on how to configure this setting, see the documentation [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
 * **Date**:
     * **Format**: Specifies the date format to be used in the "Date" column on the Git Graph View.
     * **Type**: Specifies the date type to be displayed in the "Date" column on the Git Graph View, either the author or commit date.
@@ -147,16 +147,16 @@ This extension consumes the following settings:
 
 This extension contributes the following commands:
 
-* `git-graph.view`: Git Graph: View Git Graph
-* `git-graph.restart`: Git Graph: Restart VSCode Git Graph (restarts repository discovery and file watchers, and reopens the existing Git Graph view)
-* `git-graph.addGitRepository`: Git Graph: Add Git Repository... _(used to add sub-repos to Git Graph)_
-* `git-graph.clearAvatarCache`: Git Graph: Clear Avatar Cache
-* `git-graph.endAllWorkspaceCodeReviews`: Git Graph: End All Code Reviews in Workspace
-* `git-graph.endSpecificWorkspaceCodeReview`: Git Graph: End a specific Code Review in Workspace... _(used to end a specific Code Review without having to first open it in the Git Graph View)_
-* `git-graph.fetch`: Git Graph: Fetch from Remote(s) _(used to open the Git Graph View and immediately run "Fetch from Remote(s)")_
-* `git-graph.removeGitRepository`: Git Graph: Remove Git Repository... _(used to remove repositories from Git Graph)_
-* `git-graph.resumeWorkspaceCodeReview`: Git Graph: Resume a specific Code Review in Workspace... _(used to open the Git Graph View to a Code Review that is already in progress)_
-* `git-graph.version`: Git Graph: Get Version Information
+* `vs-git-graph.view`: Git Graph: View Git Graph
+* `vs-git-graph.restart`: Git Graph: Restart VSCode Git Graph (restarts repository discovery and file watchers, and reopens the existing Git Graph view)
+* `vs-git-graph.addGitRepository`: Git Graph: Add Git Repository... _(used to add sub-repos to Git Graph)_
+* `vs-git-graph.clearAvatarCache`: Git Graph: Clear Avatar Cache
+* `vs-git-graph.endAllWorkspaceCodeReviews`: Git Graph: End All Code Reviews in Workspace
+* `vs-git-graph.endSpecificWorkspaceCodeReview`: Git Graph: End a specific Code Review in Workspace... _(used to end a specific Code Review without having to first open it in the Git Graph View)_
+* `vs-git-graph.fetch`: Git Graph: Fetch from Remote(s) _(used to open the Git Graph View and immediately run "Fetch from Remote(s)")_
+* `vs-git-graph.removeGitRepository`: Git Graph: Remove Git Repository... _(used to remove repositories from Git Graph)_
+* `vs-git-graph.resumeWorkspaceCodeReview`: Git Graph: Resume a specific Code Review in Workspace... _(used to open the Git Graph View to a Code Review that is already in progress)_
+* `vs-git-graph.version`: Git Graph: Get Version Information
 
 ## Release Notes
 
@@ -164,7 +164,7 @@ Detailed Release Notes are available [here](CHANGELOG.md).
 
 ## Visual Studio Marketplace
 
-This extension is available on the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=mhutchie.git-graph) for Visual Studio Code.
+This extension is available on the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=busydog.vs-git-graph) for Visual Studio Code.
 
 ## Acknowledgements
 

@@ -50,7 +50,7 @@
 	padding:4px;
 	border:0;
 	background:transparent;
-	color:var(--git-graph-color);
+	color:var(--vs-git-graph-color);
 	cursor:pointer;
 }
 .branchLabelsHint svg{

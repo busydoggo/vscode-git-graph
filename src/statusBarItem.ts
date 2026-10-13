@@ -26,7 +26,7 @@ export class StatusBarItem extends Disposable {
 		const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1);
 		statusBarItem.text = '$(git-merge)';
 		statusBarItem.tooltip = 'View Git Graph';
-		statusBarItem.command = 'git-graph.view';
+		statusBarItem.command = 'vs-git-graph.view';
 		this.statusBarItem = statusBarItem;
 
 		this.registerDisposables(
@@ -34,7 +34,7 @@ export class StatusBarItem extends Disposable {
 				this.setNumRepos(event.numRepos);
 			}),
 			onDidChangeConfiguration((event) => {
-				if (event.affectsConfiguration('git-graph.showStatusBarItem')) {
+				if (event.affectsConfiguration('vs-git-graph.showStatusBarItem')) {
 					this.refresh();
 				}
 			}),
@@ -54,7 +54,7 @@ export class StatusBarItem extends Disposable {
 	}
 
 	/**
-	 * Show or hide the Status Bar Item according to the configured value of `git-graph.showStatusBarItem`, and the number of repositories known to Git Graph.
+	 * Show or hide the Status Bar Item according to the configured value of `vs-git-graph.showStatusBarItem`, and the number of repositories known to Git Graph.
 	 */
 	private refresh() {
 		const shouldBeVisible = getConfig().showStatusBarItem && this.numRepos > 0;

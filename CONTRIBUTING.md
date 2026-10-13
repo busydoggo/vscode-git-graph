@@ -2,11 +2,11 @@
 
 Thank you for taking the time to contribute!
 
-The following are a set of guidelines for contributing to vscode-git-graph.
+The following are a set of guidelines for contributing to vscode-vs-git-graph.
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the [Git Graph Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [mhutchie@16right.com](mailto:mhutchie@16right.com).
+This project and everyone participating in it is governed by the [Git Graph Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [busydog@16right.com](mailto:busydog@16right.com).
 
 ## How Can I Contribute?
 
@@ -14,10 +14,10 @@ This project and everyone participating in it is governed by the [Git Graph Code
 
 Raise a bug you've found to help us improve!
 
-Check the [open bugs](https://github.com/mhutchie/vscode-git-graph/issues?q=is%3Aissue+is%3Aopen+label%3A"bugs"), and any fixed bugs ready for release on the [project board](https://github.com/mhutchie/vscode-git-graph/projects/1#column-4514040), to see if it's already being resolved. If it is, give the issue a thumbs up, and help provide additional context if the issue author was unable to provide some details.
+Check the [open bugs](https://github.com/busydog/vscode-vs-git-graph/issues?q=is%3Aissue+is%3Aopen+label%3A"bugs"), and any fixed bugs ready for release on the [project board](https://github.com/busydog/vscode-vs-git-graph/projects/1#column-4514040), to see if it's already being resolved. If it is, give the issue a thumbs up, and help provide additional context if the issue author was unable to provide some details.
 
 If the bug hasn't previously been reported, please follow these steps:
-1. Raise an issue using the "Bug Report" template. [Create Bug Report](https://github.com/mhutchie/vscode-git-graph/issues/new?assignees=mhutchie&labels=bug&template=bug-report.md&title=)
+1. Raise an issue using the "Bug Report" template. [Create Bug Report](https://github.com/busydog/vscode-vs-git-graph/issues/new?assignees=busydog&labels=bug&template=bug-report.md&title=)
 2. Complete the template, providing information for all of the required sections.
 3. Click "Submit new issue"
 
@@ -27,27 +27,27 @@ We will respond promptly, and get it resolved as quickly as possible.
 
 Suggest a new feature for this extension! We want to make Git Graph an even more useful tool in Visual Studio Code, so any suggestions you have are greatly appreciated.
 
-Check the [open feature requests](https://github.com/mhutchie/vscode-git-graph/issues?q=is%3Aissue+is%3Aopen+label%3A"feature+request"), and any feature requests ready for release on the [project board](https://github.com/mhutchie/vscode-git-graph/projects/1#column-4514040), to see if your idea is already under consideration or on its way. If it is, give the issue a thumbs up so it will be higher prioritised.
+Check the [open feature requests](https://github.com/busydog/vscode-vs-git-graph/issues?q=is%3Aissue+is%3Aopen+label%3A"feature+request"), and any feature requests ready for release on the [project board](https://github.com/busydog/vscode-vs-git-graph/projects/1#column-4514040), to see if your idea is already under consideration or on its way. If it is, give the issue a thumbs up so it will be higher prioritised.
 
 If your feature hasn't previously been suggested, please follow these steps:
-1. Raise an issue using the "Feature Request" template. [Create Feature Request](https://github.com/mhutchie/vscode-git-graph/issues/new?assignees=mhutchie&labels=feature+request&template=feature-request.md&title=)
+1. Raise an issue using the "Feature Request" template. [Create Feature Request](https://github.com/busydog/vscode-vs-git-graph/issues/new?assignees=busydog&labels=feature+request&template=feature-request.md&title=)
 2. Follow the template as you see appropriate, it's only meant to be a guide.
 3. Click "Submit new issue"
 
-We will respond promptly, and your request will be prioritised according to the Git Graph [Issue Prioritisation](https://github.com/mhutchie/vscode-git-graph/wiki/Issue-Prioritisation).
+We will respond promptly, and your request will be prioritised according to the Git Graph [Issue Prioritisation](https://github.com/busydog/vscode-vs-git-graph/wiki/Issue-Prioritisation).
 
 ### Improvements
 
 Suggest an improvement to existing functionality of this extension! We want to make Git Graph an even more useful tool in Visual Studio Code, so any improvements you have are greatly appreciated.
 
-Check the [open improvements](https://github.com/mhutchie/vscode-git-graph/issues?q=is%3Aissue+is%3Aopen+label%3A"improvement"), and any improvements ready for release on the [project board](https://github.com/mhutchie/vscode-git-graph/projects/1#column-4514040), to see if your improvement is already under consideration or on its way. If it is, give the issue a thumbs up so it will be higher prioritised.
+Check the [open improvements](https://github.com/busydog/vscode-vs-git-graph/issues?q=is%3Aissue+is%3Aopen+label%3A"improvement"), and any improvements ready for release on the [project board](https://github.com/busydog/vscode-vs-git-graph/projects/1#column-4514040), to see if your improvement is already under consideration or on its way. If it is, give the issue a thumbs up so it will be higher prioritised.
 
 If your improvement hasn't previously been suggested, please follow these steps:
-1. Raise an issue using the "Improvement" template. [Create Improvement](https://github.com/mhutchie/vscode-git-graph/issues/new?assignees=mhutchie&labels=improvement&template=improvement.md&title=)
+1. Raise an issue using the "Improvement" template. [Create Improvement](https://github.com/busydog/vscode-vs-git-graph/issues/new?assignees=busydog&labels=improvement&template=improvement.md&title=)
 2. Follow the template as you see appropriate, it's only meant to be a guide.
 3. Click "Submit new issue"
 
-We will respond promptly, and your request will be prioritised according to the Git Graph [Issue Prioritisation](https://github.com/mhutchie/vscode-git-graph/wiki/Issue-Prioritisation).
+We will respond promptly, and your request will be prioritised according to the Git Graph [Issue Prioritisation](https://github.com/busydog/vscode-vs-git-graph/wiki/Issue-Prioritisation).
 
 ### Contributing To Development
 
@@ -57,13 +57,13 @@ If you're interested in helping contribute, either:
 
 Step 1: To set up your development environment, please follow these steps:
 1. Install [Node.js](https://nodejs.org/en/) if it is not already installed.
-2. Clone the [vscode-git-graph](https://github.com/mhutchie/vscode-git-graph) repo on GitHub.
+2. Clone the [vscode-vs-git-graph](https://github.com/busydog/vscode-vs-git-graph) repo on GitHub.
 3. Open the repo in Visual Studio Code.
 4. In the Visual Studio Code terminal, run `npm install` to automatically download all of the required Node.js dependencies.
 5. Install the [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) extension if it is not already installed.
 6. Create and checkout a branch for the issue you're going to work on.
 
-Step 2: Review the [Codebase Outline](https://github.com/mhutchie/vscode-git-graph/wiki/Codebase-Outline), so you have a general understanding of the structure of the codebase.
+Step 2: Review the [Codebase Outline](https://github.com/busydog/vscode-vs-git-graph/wiki/Codebase-Outline), so you have a general understanding of the structure of the codebase.
 
 Step 3: To compile the code, run the appropriate npm script in the Visual Studio Code terminal as follows:
 * `npm run compile`: Compiles both front and backend code

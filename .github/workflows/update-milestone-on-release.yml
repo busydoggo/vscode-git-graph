@@ -9,6 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 'Update Milestone on Release'
-        uses: mhutchie/update-milestone-on-release@master
+        uses: busydog/update-milestone-on-release@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

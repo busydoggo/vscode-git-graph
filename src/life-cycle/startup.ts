@@ -4,7 +4,7 @@
  * - The two version numbers recorded in these events only allow aggregate compatibility information to be generated (e.g. 50% of users are
  *   using Visual Studio Code >= 1.41.0). These insights enable Git Graph to utilise the latest features of Visual Studio Code as soon as
  *   the majority of users are using a compatible version. The data cannot, and will not, be used for any other purpose.
- * - Full details are available at: https://api.mhutchie.com/vscode-git-graph/about
+ * - Full details are available at: https://api.busydog.com/vscode-vs-git-graph/about
  */
 
 import * as fs from 'fs';

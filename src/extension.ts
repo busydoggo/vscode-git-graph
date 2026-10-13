@@ -49,7 +49,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			disposed = true;
 			stop();
 		}),
-		vscode.commands.registerCommand('git-graph.restart', () => {
+		vscode.commands.registerCommand('vs-git-graph.restart', () => {
 			if (disposed) return Promise.resolve();
 			if (restarting !== null) return restarting;
 			const reopenView = GitGraphView.currentPanel !== undefined;
@@ -57,7 +57,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				stop();
 				await start();
 				if (disposed) return;
-				if (reopenView) await vscode.commands.executeCommand('git-graph.view');
+				if (reopenView) await vscode.commands.executeCommand('vs-git-graph.view');
 				showInformationMessage('Git Graph has been restarted.');
 			})().catch(error => {
 				if (!disposed) showErrorMessage('Unable to restart Git Graph: ' + String(error));
@@ -116,7 +116,7 @@ async function startSession(context: vscode.ExtensionContext, session: Extension
 
 	own(session, vscode.workspace.registerTextDocumentContentProvider(DiffDocProvider.scheme, diffDocProvider));
 	own(session, vscode.workspace.onDidChangeConfiguration((event) => {
-		if (event.affectsConfiguration('git-graph')) {
+		if (event.affectsConfiguration('vs-git-graph')) {
 			configurationEmitter.emit(event);
 		} else if (event.affectsConfiguration('git.path')) {
 			const paths = getConfig().gitPaths;

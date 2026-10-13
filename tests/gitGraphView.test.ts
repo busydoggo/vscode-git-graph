@@ -99,7 +99,7 @@ describe('GitGraphView', () => {
 			GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
 
 			// Assert
-			expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith('git-graph', 'Git Graph', vscode.ViewColumn.Two, {
+			expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith('vs-git-graph', 'Git Graph', vscode.ViewColumn.Two, {
 				enableScripts: true,
 				localResourceRoots: [vscode.Uri.file(path.join('/path/to/extension', 'media'))],
 				retainContextWhenHidden: true
@@ -176,7 +176,7 @@ describe('GitGraphView', () => {
 			GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
 
 			// Assert
-			expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith('git-graph', 'Git Graph', vscode.ViewColumn.One, {
+			expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith('vs-git-graph', 'Git Graph', vscode.ViewColumn.One, {
 				enableScripts: true,
 				localResourceRoots: [vscode.Uri.file(path.join('/path/to/extension', 'media'))],
 				retainContextWhenHidden: true
@@ -192,7 +192,7 @@ describe('GitGraphView', () => {
 			GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
 
 			// Assert
-			expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith('git-graph', 'Git Graph', vscode.ViewColumn.One, {
+			expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith('vs-git-graph', 'Git Graph', vscode.ViewColumn.One, {
 				enableScripts: true,
 				localResourceRoots: [vscode.Uri.file(path.join('/path/to/extension', 'media'))],
 				retainContextWhenHidden: true
@@ -208,7 +208,7 @@ describe('GitGraphView', () => {
 			GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
 
 			// Assert
-			expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith('git-graph', 'Git Graph', vscode.ViewColumn.One, {
+			expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith('vs-git-graph', 'Git Graph', vscode.ViewColumn.One, {
 				enableScripts: true,
 				localResourceRoots: [vscode.Uri.file(path.join('/path/to/extension', 'media'))],
 				retainContextWhenHidden: false
@@ -347,7 +347,7 @@ describe('GitGraphView', () => {
 				const configurationChanged = vscode.workspace.onDidChangeConfiguration.mock.calls[0][0];
 				mocked.mocks.panel.setVisibility(false);
 				vscode.mockExtensionSettingReturnValue('initialLoadCommits', 123);
-				configurationChanged({ affectsConfiguration: section => section === 'git-graph' });
+				configurationChanged({ affectsConfiguration: section => section === 'vs-git-graph' });
 				mocked.mocks.panel.setVisibility(true);
 				expect(mocked.panel.webview.html).toContain('"initialLoadCommits":123');
 				const html = mocked.panel.webview.html;
@@ -509,7 +509,7 @@ describe('GitGraphView', () => {
 
 				// Run
 				onAvatar.emit({
-					email: 'user1@mhutchie.com',
+					email: 'user1@busydog.com',
 					image: 'data:image/png;base64,YmluYXJ5LWltYWdlLWRhdGE='
 				});
 
@@ -518,7 +518,7 @@ describe('GitGraphView', () => {
 				expect(mockedWebviewPanel.mocks.messages).toStrictEqual([
 					{
 						command: 'fetchAvatar',
-						email: 'user1@mhutchie.com',
+						email: 'user1@busydog.com',
 						image: 'data:image/png;base64,YmluYXJ5LWltYWdlLWRhdGE='
 					}
 				]);
@@ -1067,14 +1067,14 @@ describe('GitGraphView', () => {
 					commitHash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
 					hasParents: true,
 					stash: null,
-					avatarEmail: 'user@mhutchie.com',
+					avatarEmail: 'user@busydog.com',
 					refresh: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
 					expect(spyOnGetCommitDetails).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', true);
-					expect(spyOnGetAvatarImage).toHaveBeenCalledWith('user@mhutchie.com');
+					expect(spyOnGetAvatarImage).toHaveBeenCalledWith('user@busydog.com');
 					expect(spyOnGetCodeReview).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
 					expect(messages).toStrictEqual([
 						{
@@ -1850,15 +1850,15 @@ describe('GitGraphView', () => {
 					repo: '/path/to/repo',
 					nameOld: 'old-origin',
 					nameNew: 'new-origin',
-					urlOld: 'https://github.com/mhutchie/old.git',
-					urlNew: 'https://github.com/mhutchie/new.git',
-					pushUrlOld: 'https://github.com/mhutchie/old-push.git',
-					pushUrlNew: 'https://github.com/mhutchie/new-push.git'
+					urlOld: 'https://github.com/busydog/old.git',
+					urlNew: 'https://github.com/busydog/new.git',
+					pushUrlOld: 'https://github.com/busydog/old-push.git',
+					pushUrlNew: 'https://github.com/busydog/new-push.git'
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnEditRemote).toHaveBeenCalledWith('/path/to/repo', 'old-origin', 'new-origin', 'https://github.com/mhutchie/old.git', 'https://github.com/mhutchie/new.git', 'https://github.com/mhutchie/old-push.git', 'https://github.com/mhutchie/new-push.git');
+					expect(spyOnEditRemote).toHaveBeenCalledWith('/path/to/repo', 'old-origin', 'new-origin', 'https://github.com/busydog/old.git', 'https://github.com/busydog/new.git', 'https://github.com/busydog/old-push.git', 'https://github.com/busydog/new-push.git');
 					expect(messages).toStrictEqual([
 						{
 							command: 'editRemote',
@@ -1884,7 +1884,7 @@ describe('GitGraphView', () => {
 					command: 'editUserDetails',
 					repo: '/path/to/repo',
 					name: 'name',
-					email: 'user@mhutchie.com',
+					email: 'user@busydog.com',
 					location: GitConfigLocation.Local,
 					deleteLocalName: false,
 					deleteLocalEmail: false
@@ -1893,7 +1893,7 @@ describe('GitGraphView', () => {
 				// Assert
 				await waitForExpect(() => {
 					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(1, '/path/to/repo', 'user.name', 'name', GitConfigLocation.Local);
-					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@mhutchie.com', GitConfigLocation.Local);
+					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@busydog.com', GitConfigLocation.Local);
 					expect(spyOnUnsetConfigValue).not.toHaveBeenCalled();
 					expect(messages).toStrictEqual([
 						{
@@ -1922,7 +1922,7 @@ describe('GitGraphView', () => {
 					command: 'editUserDetails',
 					repo: '/path/to/repo',
 					name: 'name',
-					email: 'user@mhutchie.com',
+					email: 'user@busydog.com',
 					location: GitConfigLocation.Global,
 					deleteLocalName: true,
 					deleteLocalEmail: true
@@ -1931,7 +1931,7 @@ describe('GitGraphView', () => {
 				// Assert
 				await waitForExpect(() => {
 					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(1, '/path/to/repo', 'user.name', 'name', GitConfigLocation.Global);
-					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@mhutchie.com', GitConfigLocation.Global);
+					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@busydog.com', GitConfigLocation.Global);
 					expect(spyOnUnsetConfigValue).toHaveBeenNthCalledWith(1, '/path/to/repo', 'user.name', GitConfigLocation.Local);
 					expect(spyOnUnsetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', GitConfigLocation.Local);
 					expect(messages).toStrictEqual([
@@ -1959,7 +1959,7 @@ describe('GitGraphView', () => {
 					command: 'editUserDetails',
 					repo: '/path/to/repo',
 					name: 'name',
-					email: 'user@mhutchie.com',
+					email: 'user@busydog.com',
 					location: GitConfigLocation.Global,
 					deleteLocalName: true,
 					deleteLocalEmail: false
@@ -1968,7 +1968,7 @@ describe('GitGraphView', () => {
 				// Assert
 				await waitForExpect(() => {
 					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(1, '/path/to/repo', 'user.name', 'name', GitConfigLocation.Global);
-					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@mhutchie.com', GitConfigLocation.Global);
+					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@busydog.com', GitConfigLocation.Global);
 					expect(spyOnUnsetConfigValue).toHaveBeenCalledTimes(1);
 					expect(spyOnUnsetConfigValue).toHaveBeenCalledWith('/path/to/repo', 'user.name', GitConfigLocation.Local);
 					expect(messages).toStrictEqual([
@@ -1996,7 +1996,7 @@ describe('GitGraphView', () => {
 					command: 'editUserDetails',
 					repo: '/path/to/repo',
 					name: 'name',
-					email: 'user@mhutchie.com',
+					email: 'user@busydog.com',
 					location: GitConfigLocation.Global,
 					deleteLocalName: false,
 					deleteLocalEmail: true
@@ -2005,7 +2005,7 @@ describe('GitGraphView', () => {
 				// Assert
 				await waitForExpect(() => {
 					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(1, '/path/to/repo', 'user.name', 'name', GitConfigLocation.Global);
-					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@mhutchie.com', GitConfigLocation.Global);
+					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@busydog.com', GitConfigLocation.Global);
 					expect(spyOnUnsetConfigValue).toHaveBeenCalledTimes(1);
 					expect(spyOnUnsetConfigValue).toHaveBeenCalledWith('/path/to/repo', 'user.email', GitConfigLocation.Local);
 					expect(messages).toStrictEqual([
@@ -2031,7 +2031,7 @@ describe('GitGraphView', () => {
 					command: 'editUserDetails',
 					repo: '/path/to/repo',
 					name: 'name',
-					email: 'user@mhutchie.com',
+					email: 'user@busydog.com',
 					location: GitConfigLocation.Global,
 					deleteLocalName: true,
 					deleteLocalEmail: true
@@ -2040,7 +2040,7 @@ describe('GitGraphView', () => {
 				// Assert
 				await waitForExpect(() => {
 					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(1, '/path/to/repo', 'user.name', 'name', GitConfigLocation.Global);
-					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@mhutchie.com', GitConfigLocation.Global);
+					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@busydog.com', GitConfigLocation.Global);
 					expect(spyOnUnsetConfigValue).not.toHaveBeenCalled();
 					expect(messages).toStrictEqual([
 						{
@@ -2065,7 +2065,7 @@ describe('GitGraphView', () => {
 					command: 'editUserDetails',
 					repo: '/path/to/repo',
 					name: 'name',
-					email: 'user@mhutchie.com',
+					email: 'user@busydog.com',
 					location: GitConfigLocation.Global,
 					deleteLocalName: true,
 					deleteLocalEmail: true
@@ -2074,7 +2074,7 @@ describe('GitGraphView', () => {
 				// Assert
 				await waitForExpect(() => {
 					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(1, '/path/to/repo', 'user.name', 'name', GitConfigLocation.Global);
-					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@mhutchie.com', GitConfigLocation.Global);
+					expect(spyOnSetConfigValue).toHaveBeenNthCalledWith(2, '/path/to/repo', 'user.email', 'user@busydog.com', GitConfigLocation.Global);
 					expect(spyOnUnsetConfigValue).not.toHaveBeenCalled();
 					expect(messages).toStrictEqual([
 						{
@@ -2173,13 +2173,13 @@ describe('GitGraphView', () => {
 					command: 'fetchAvatar',
 					repo: '/path/to/repo',
 					remote: 'origin',
-					email: 'user@mhutchie.com',
+					email: 'user@busydog.com',
 					commits: ['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b']
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnFetchAvatarImage).toHaveBeenCalledWith('user@mhutchie.com', '/path/to/repo', 'origin', ['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b']);
+					expect(spyOnFetchAvatarImage).toHaveBeenCalledWith('user@busydog.com', '/path/to/repo', 'origin', ['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b']);
 					expect(messages).toHaveLength(0);
 				});
 			});
@@ -2222,7 +2222,7 @@ describe('GitGraphView', () => {
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
 						parents: [],
 						author: 'Test Name',
-						email: 'test@mhutchie.com',
+						email: 'test@busydog.com',
 						date: 1587559258,
 						message: 'Commit Message 3',
 						heads: ['master'],
@@ -2857,12 +2857,12 @@ describe('GitGraphView', () => {
 				// Run
 				onDidReceiveMessage({
 					command: 'openExternalUrl',
-					url: 'https://www.mhutchie.com'
+					url: 'https://www.busydog.com'
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnOpenExternalUrl).toHaveBeenCalledWith('https://www.mhutchie.com');
+					expect(spyOnOpenExternalUrl).toHaveBeenCalledWith('https://www.busydog.com');
 					expect(messages).toStrictEqual([
 						{
 							command: 'openExternalUrl',
@@ -3717,7 +3717,7 @@ describe('GitGraphView', () => {
 			expect(mockedWebviewPanel.panel.webview.html).toContain('<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src vscode-webview-resource: \'unsafe-inline\'; script-src \'nonce-1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d\'; img-src data:;">');
 			expect(mockedWebviewPanel.panel.webview.html).toContain('<link rel="stylesheet" type="text/css" href="vscode-webview-resource://file///path/to/extension/media/out.min.css">');
 			expect(mockedWebviewPanel.panel.webview.html).toContain('<title>Git Graph</title>');
-			expect(mockedWebviewPanel.panel.webview.html).toContain('<style>body{--git-graph-color0:#0085d9; --git-graph-color1:#d9008f; --git-graph-color2:#00d90a; --git-graph-color3:#d98500; --git-graph-color4:#a300d9; --git-graph-color5:#ff0000; --git-graph-color6:#00d9cc; --git-graph-color7:#e138e8; --git-graph-color8:#85d900; --git-graph-color9:#dc5b23; --git-graph-color10:#6f24d6; --git-graph-color11:#ffcc00; } [data-color=\"0\"]{--git-graph-color:var(--git-graph-color0);} [data-color=\"1\"]{--git-graph-color:var(--git-graph-color1);} [data-color=\"2\"]{--git-graph-color:var(--git-graph-color2);} [data-color=\"3\"]{--git-graph-color:var(--git-graph-color3);} [data-color=\"4\"]{--git-graph-color:var(--git-graph-color4);} [data-color=\"5\"]{--git-graph-color:var(--git-graph-color5);} [data-color=\"6\"]{--git-graph-color:var(--git-graph-color6);} [data-color=\"7\"]{--git-graph-color:var(--git-graph-color7);} [data-color=\"8\"]{--git-graph-color:var(--git-graph-color8);} [data-color=\"9\"]{--git-graph-color:var(--git-graph-color9);} [data-color=\"10\"]{--git-graph-color:var(--git-graph-color10);} [data-color=\"11\"]{--git-graph-color:var(--git-graph-color11);} </style>');
+			expect(mockedWebviewPanel.panel.webview.html).toContain('<style>body{--vs-git-graph-color0:#0085d9; --vs-git-graph-color1:#d9008f; --vs-git-graph-color2:#00d90a; --vs-git-graph-color3:#d98500; --vs-git-graph-color4:#a300d9; --vs-git-graph-color5:#ff0000; --vs-git-graph-color6:#00d9cc; --vs-git-graph-color7:#e138e8; --vs-git-graph-color8:#85d900; --vs-git-graph-color9:#dc5b23; --vs-git-graph-color10:#6f24d6; --vs-git-graph-color11:#ffcc00; } [data-color=\"0\"]{--vs-git-graph-color:var(--vs-git-graph-color0);} [data-color=\"1\"]{--vs-git-graph-color:var(--vs-git-graph-color1);} [data-color=\"2\"]{--vs-git-graph-color:var(--vs-git-graph-color2);} [data-color=\"3\"]{--vs-git-graph-color:var(--vs-git-graph-color3);} [data-color=\"4\"]{--vs-git-graph-color:var(--vs-git-graph-color4);} [data-color=\"5\"]{--vs-git-graph-color:var(--vs-git-graph-color5);} [data-color=\"6\"]{--vs-git-graph-color:var(--vs-git-graph-color6);} [data-color=\"7\"]{--vs-git-graph-color:var(--vs-git-graph-color7);} [data-color=\"8\"]{--vs-git-graph-color:var(--vs-git-graph-color8);} [data-color=\"9\"]{--vs-git-graph-color:var(--vs-git-graph-color9);} [data-color=\"10\"]{--vs-git-graph-color:var(--vs-git-graph-color10);} [data-color=\"11\"]{--vs-git-graph-color:var(--vs-git-graph-color11);} </style>');
 		});
 
 		it('Should get HTML when no Git executable is known', () => {
@@ -3824,18 +3824,18 @@ describe('standardiseCspSource', () => {
 
 	it('Should not affect http host-only sources', () => {
 		// Run
-		const result = standardiseCspSource('http://www.mhutchie.com');
+		const result = standardiseCspSource('http://www.busydog.com');
 
 		// Assert
-		expect(result).toBe('http://www.mhutchie.com');
+		expect(result).toBe('http://www.busydog.com');
 	});
 
 	it('Should not affect https host-only sources', () => {
 		// Run
-		const result = standardiseCspSource('https://www.mhutchie.com');
+		const result = standardiseCspSource('https://www.busydog.com');
 
 		// Assert
-		expect(result).toBe('https://www.mhutchie.com');
+		expect(result).toBe('https://www.busydog.com');
 	});
 
 	it('Should not affect https host-only IP sources', () => {
@@ -3848,18 +3848,18 @@ describe('standardiseCspSource', () => {
 
 	it('Should remove the path component from http sources', () => {
 		// Run
-		const result = standardiseCspSource('http://www.mhutchie.com/path/to/file');
+		const result = standardiseCspSource('http://www.busydog.com/path/to/file');
 
 		// Assert
-		expect(result).toBe('http://www.mhutchie.com');
+		expect(result).toBe('http://www.busydog.com');
 	});
 
 	it('Should remove the path component from https sources', () => {
 		// Run
-		const result = standardiseCspSource('https://www.mhutchie.com/path/to/file');
+		const result = standardiseCspSource('https://www.busydog.com/path/to/file');
 
 		// Assert
-		expect(result).toBe('https://www.mhutchie.com');
+		expect(result).toBe('https://www.busydog.com');
 	});
 
 	it('Should remove the path component from https IP sources', () => {
@@ -3872,25 +3872,25 @@ describe('standardiseCspSource', () => {
 
 	it('Should remove the query from http/https sources', () => {
 		// Run
-		const result = standardiseCspSource('https://www.mhutchie.com?query');
+		const result = standardiseCspSource('https://www.busydog.com?query');
 
 		// Assert
-		expect(result).toBe('https://www.mhutchie.com');
+		expect(result).toBe('https://www.busydog.com');
 	});
 
 	it('Should remove the fragment from http/https sources', () => {
 		// Run
-		const result = standardiseCspSource('https://www.mhutchie.com#fragment');
+		const result = standardiseCspSource('https://www.busydog.com#fragment');
 
 		// Assert
-		expect(result).toBe('https://www.mhutchie.com');
+		expect(result).toBe('https://www.busydog.com');
 	});
 
 	it('Should remove the path, query & fragment from http/https sources', () => {
 		// Run
-		const result = standardiseCspSource('https://www.mhutchie.com:443/path/to/file?query#fragment');
+		const result = standardiseCspSource('https://www.busydog.com:443/path/to/file?query#fragment');
 
 		// Assert
-		expect(result).toBe('https://www.mhutchie.com:443');
+		expect(result).toBe('https://www.busydog.com:443');
 	});
 });

@@ -102,8 +102,8 @@ class FindWidget {
 	}
 
 	public setColour(colour: string) {
-		document.body.style.setProperty('--git-graph-findMatch', colour);
-		document.body.style.setProperty('--git-graph-findMatchCommit', modifyColourOpacity(colour, 0.5));
+		document.body.style.setProperty('--vs-git-graph-findMatch', colour);
+		document.body.style.setProperty('--vs-git-graph-findMatchCommit', modifyColourOpacity(colour, 0.5));
 	}
 
 	public getState(): FindWidgetState {
