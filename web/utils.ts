@@ -55,7 +55,6 @@ const GIT_SIGNATURE_STATUS_DESCRIPTIONS = {
 	'E': 'Signature could not be checked',
 	'B': 'Bad Signature'
 };
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const REF_INVALID_REGEX = /^[-\/].*|[\\" ><~^:?*[]|\.\.|\/\/|\/\.|@{|[.\/]$|\.lock$|^@$/g;
 
 const HTML_ESCAPES: { [key: string]: string } = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#x27;', '/': '&#x2F;' };
@@ -266,9 +265,8 @@ function formatCommaSeparatedList(items: string[]) {
  */
 function formatShortDate(unixTimestamp: number) {
 	const date = new Date(unixTimestamp * 1000), format = initialState.config.dateFormat;
-	let dateStr = format.iso
-		? date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate())
-		: date.getDate() + ' ' + MONTHS[date.getMonth()] + ' ' + date.getFullYear();
+	const separator = format.iso ? '-' : '/';
+	let dateStr = date.getFullYear() + separator + pad2(date.getMonth() + 1) + separator + pad2(date.getDate());
 	let hourMinsStr = pad2(date.getHours()) + ':' + pad2(date.getMinutes());
 	let formatted;
 
