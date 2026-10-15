@@ -1,7 +1,7 @@
 {
 	"name": "vs-git-graph",
 	"displayName": "VS Git Graph",
-	"version": "1.31.0",
+	"version": "1.31.1",
 	"publisher": "busydog",
 	"author": {
 		"name": "Michael Hutchison",
@@ -18,15 +18,15 @@
 	"categories": [
 		"Other"
 	],
-	"homepage": "https://github.com/busydog/vscode-vs-git-graph",
+	"homepage": "https://github.com/busydoggo/vscode-git-graph",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/busydog/vscode-vs-git-graph.git"
+		"url": "https://github.com/busydoggo/vscode-git-graph.git"
 	},
 	"bugs": {
-		"url": "https://github.com/busydog/vscode-vs-git-graph/issues"
+		"url": "https://github.com/busydoggo/vscode-git-graph/issues"
 	},
-	"qna": "https://github.com/busydog/vscode-vs-git-graph/wiki/Support-Resources",
+	"qna": "https://github.com/busydoggo/vscode-git-graph/wiki/Support-Resources",
 	"license": "MIT",
 	"icon": "resources/icon.png",
 	"engines": {

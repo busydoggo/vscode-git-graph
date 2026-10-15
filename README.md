@@ -1,8 +1,10 @@
 # Git Graph extension for Visual Studio Code
 
+English | [简体中文](README.zh-CN.md)
+
 View a Git Graph of your repository, and easily perform Git actions from the graph. Configurable to look the way you want!
 
-![Recording of Git Graph](https://github.com/busydog/vscode-vs-git-graph/raw/master/resources/demo.gif)
+![Recording of Git Graph](https://raw.githubusercontent.com/busydoggo/vscode-git-graph/main/resources/demo.gif)
 
 ## Features
 
@@ -47,7 +49,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * Configure "Issue Linking" - Converts issue numbers in commit messages into hyperlinks, that open the issue in your issue tracking system.
         * Configure "Pull Request Creation" - Automates the opening and pre-filling of a Pull Request form, directly from a branches context menu.
             * Support for the publicly hosted Bitbucket, GitHub and GitLab Pull Request providers is built-in.
-            * Custom Pull Request providers can be configured using the Extension Setting `vs-git-graph.customPullRequestProviders` (e.g. for use with privately hosted Pull Request providers). Information on how to configure custom providers is available [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
+            * Custom Pull Request providers can be configured using the Extension Setting `vs-git-graph.customPullRequestProviders` (e.g. for use with privately hosted Pull Request providers). Information on how to configure custom providers is available [here](https://github.com/busydoggo/vscode-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
         * Export your Git Graph Repository Configuration to a file that can be committed in the repository. It allows others working in the same repository to automatically use the same Git Graph configuration.
     * Keyboard Shortcuts (available in the Git Graph View):
         * `CTRL/CMD + F`: Focus the Description search field.
@@ -69,7 +71,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
 
 ## Extension Settings
 
-Detailed information of all Git Graph settings is available [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Extension-Settings), including: descriptions, screenshots, default values and types.
+Detailed information of all Git Graph settings is available [here](https://github.com/busydoggo/vscode-git-graph/wiki/Extension-Settings), including: descriptions, screenshots, default values and types.
 
 A summary of the Git Graph extension settings are:
 * **Commit Details View**:
@@ -79,10 +81,10 @@ A summary of the Git Graph extension settings are:
             * **Compact Folders**: Render the File Tree in the Commit Details View in a compacted form, such that folders with a single child folder are compressed into a single combined folder element.
         * **Type**: Sets the default type of File View used in the Commit Details View.
     * **Location**: Specifies where the Commit Details View is rendered in the Git Graph View.
-* **Context Menu Actions Visibility**: Customise which context menu actions are visible. For more information, see the documentation [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Extension-Settings#context-menu-actions-visibility).
+* **Context Menu Actions Visibility**: Customise which context menu actions are visible. For more information, see the documentation [here](https://github.com/busydoggo/vscode-git-graph/wiki/Extension-Settings#context-menu-actions-visibility).
 * **Custom Branch Glob Patterns**: An array of Custom Glob Patterns to be shown in the "Branches" dropdown. Example: `[{"name":"Feature Requests", "glob":"heads/feature/*"}]`
 * **Custom Emoji Shortcode Mappings**: An array of custom Emoji Shortcode mappings. Example: `[{"shortcode": ":sparkles:", "emoji":"✨"}]`
-* **Custom Pull Request Providers**: An array of custom Pull Request providers that can be used in the "Pull Request Creation" Integration. For information on how to configure this setting, see the documentation [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
+* **Custom Pull Request Providers**: An array of custom Pull Request providers that can be used in the "Pull Request Creation" Integration. For information on how to configure this setting, see the documentation [here](https://github.com/busydoggo/vscode-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
 * **Date**:
     * **Format**: Specifies the date format to be used in the "Date" column on the Git Graph View.
     * **Type**: Specifies the date type to be displayed in the "Date" column on the Git Graph View, either the author or commit date.
@@ -157,6 +159,50 @@ This extension contributes the following commands:
 * `vs-git-graph.removeGitRepository`: Git Graph: Remove Git Repository... _(used to remove repositories from Git Graph)_
 * `vs-git-graph.resumeWorkspaceCodeReview`: Git Graph: Resume a specific Code Review in Workspace... _(used to open the Git Graph View to a Code Review that is already in progress)_
 * `vs-git-graph.version`: Git Graph: Get Version Information
+
+## Building and Packaging
+
+Install Node.js and npm, then run the following commands from the repository root.
+
+### Install dependencies
+
+```sh
+npm ci
+```
+
+This installs both runtime and development dependencies using `package-lock.json`.
+
+### Compile the extension
+
+```sh
+npm run compile
+```
+
+This runs ESLint, cleans previous build output, compiles the extension backend into `out/`, and compiles and bundles the webview JavaScript and CSS into `media/`.
+
+For incremental development, use `npm run compile-src` for the backend, `npm run compile-web` for the webview, or `npm run compile-web-debug` for an unminified webview build. Run `npm run compile-src` before the first webview build, and whenever shared backend types change.
+
+### Package a VSIX
+
+```sh
+npm exec --yes --package @vscode/vsce -- vsce package
+```
+
+This downloads the packaging tool if needed, without requiring a global installation. Packaging automatically runs `npm run vscode:prepublish`, which runs the full compile process, so a separate compile step is optional when packaging.
+
+The package is created in the repository root as `vs-git-graph-<version>.vsix`, using the version in `package.json` (for example, `vs-git-graph-1.31.1.vsix`).
+
+If `vsce` is already installed and available on your `PATH`, you can also use `npm run package`.
+
+### Install the package locally
+
+With the Visual Studio Code `code` command available on your `PATH`, run:
+
+```sh
+code --install-extension ./vs-git-graph-1.31.1.vsix --force
+```
+
+Replace the filename if the version changes, then run **Developer: Reload Window** in Visual Studio Code. Alternatively, use **Extensions: Install from VSIX...** in the Command Palette and select the generated file.
 
 ## Release Notes
 

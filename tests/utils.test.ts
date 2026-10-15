@@ -967,11 +967,11 @@ describe('openExternalUrl', () => {
 		vscode.env.openExternal.mockResolvedValueOnce(true);
 
 		// Run
-		const result = await openExternalUrl('https://github.com/busydog/vscode-vs-git-graph');
+		const result = await openExternalUrl('https://github.com/busydoggo/vscode-git-graph');
 
 		// Assert
 		expect(result).toBe(null);
-		expect(vscode.env.openExternal.mock.calls[0][0].toString()).toBe('https://github.com/busydog/vscode-vs-git-graph');
+		expect(vscode.env.openExternal.mock.calls[0][0].toString()).toBe('https://github.com/busydoggo/vscode-git-graph');
 	});
 
 	it('Should return an error message if vscode was unable to open the url (vscode.env.openExternal resolves FALSE)', async () => {
@@ -979,10 +979,10 @@ describe('openExternalUrl', () => {
 		vscode.env.openExternal.mockResolvedValueOnce(false);
 
 		// Run
-		const result = await openExternalUrl('https://github.com/busydog/vscode-vs-git-graph');
+		const result = await openExternalUrl('https://github.com/busydoggo/vscode-git-graph');
 
 		// Assert
-		expect(result).toBe('Visual Studio Code was unable to open the External URL: https://github.com/busydog/vscode-vs-git-graph');
+		expect(result).toBe('Visual Studio Code was unable to open the External URL: https://github.com/busydoggo/vscode-git-graph');
 	});
 
 	it('Should return an error message if vscode was unable to open the url (vscode.env.openExternal rejects)', async () => {
@@ -990,10 +990,10 @@ describe('openExternalUrl', () => {
 		vscode.env.openExternal.mockRejectedValueOnce(null);
 
 		// Run
-		const result = await openExternalUrl('https://github.com/busydog/vscode-vs-git-graph');
+		const result = await openExternalUrl('https://github.com/busydoggo/vscode-git-graph');
 
 		// Assert
-		expect(result).toBe('Visual Studio Code was unable to open the External URL: https://github.com/busydog/vscode-vs-git-graph');
+		expect(result).toBe('Visual Studio Code was unable to open the External URL: https://github.com/busydoggo/vscode-git-graph');
 	});
 
 	it('Should return an error message if vscode was unable to parse the url', async () => {
@@ -1004,10 +1004,10 @@ describe('openExternalUrl', () => {
 		});
 
 		// Run
-		const result = await openExternalUrl('https://github.com/busydog/vscode-vs-git-graph');
+		const result = await openExternalUrl('https://github.com/busydoggo/vscode-git-graph');
 
 		// Assert
-		expect(result).toBe('Visual Studio Code was unable to open the External URL: https://github.com/busydog/vscode-vs-git-graph');
+		expect(result).toBe('Visual Studio Code was unable to open the External URL: https://github.com/busydoggo/vscode-git-graph');
 		expect(vscode.env.openExternal).not.toHaveBeenCalled();
 	});
 
@@ -1016,10 +1016,10 @@ describe('openExternalUrl', () => {
 		vscode.env.openExternal.mockRejectedValueOnce(null);
 
 		// Run
-		const result = await openExternalUrl('https://github.com/busydog/vscode-vs-git-graph', 'Custom URL');
+		const result = await openExternalUrl('https://github.com/busydoggo/vscode-git-graph', 'Custom URL');
 
 		// Assert
-		expect(result).toBe('Visual Studio Code was unable to open the Custom URL: https://github.com/busydog/vscode-vs-git-graph');
+		expect(result).toBe('Visual Studio Code was unable to open the Custom URL: https://github.com/busydoggo/vscode-git-graph');
 	});
 });
 

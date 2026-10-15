@@ -124,7 +124,7 @@ describe('AvatarManager', () => {
 		describe('GitHub', () => {
 			it('Should fetch a new avatar from GitHub (HTTPS Remote)', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsResponse(200, '{"author":{"avatar_url":"https://avatar-url"}}');
 				mockHttpsResponse(200, 'binary-image-data');
 				mockWriteFile(null);
@@ -143,14 +143,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'api.github.com',
 					path: '/repos/busydog/test-repo/commits/1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'avatar-url',
 					path: '/&size=162',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -193,14 +193,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'api.github.com',
 					path: '/repos/busydog/test-repo/commits/2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'avatar-url',
 					path: '/&size=162',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -215,7 +215,7 @@ describe('AvatarManager', () => {
 
 			it('Should fallback to Gravatar when there is no avatar_url are in the GitHub response', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsResponse(200, '{"author":{}}');
 				mockHttpsResponse(200, 'binary-image-data');
 				mockWriteFile(null);
@@ -234,14 +234,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'api.github.com',
 					path: '/repos/busydog/test-repo/commits/1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -256,7 +256,7 @@ describe('AvatarManager', () => {
 
 			it('Should fallback to Gravatar when an unexpected status code is received from the GitHub API', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsResponse(401, '');
 				mockHttpsResponse(200, 'binary-image-data');
 				mockWriteFile(null);
@@ -275,14 +275,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'api.github.com',
 					path: '/repos/busydog/test-repo/commits/1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -297,7 +297,7 @@ describe('AvatarManager', () => {
 
 			it('Should halt fetching the avatar when the GitHub avatar url request is unsuccessful', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsResponse(200, '{"author":{"avatar_url":"https://avatar-url"}}');
 				mockHttpsResponse(404, '');
 
@@ -312,14 +312,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'api.github.com',
 					path: '/repos/busydog/test-repo/commits/1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'avatar-url',
 					path: '/&size=162',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -327,7 +327,7 @@ describe('AvatarManager', () => {
 
 			it('Should requeue the request when the GitHub API cannot find the commit', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsResponse(422, '', { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': (date.now + 1).toString() });
 
 				// Run
@@ -355,7 +355,7 @@ describe('AvatarManager', () => {
 
 			it('Should set the GitHub API timeout and requeue the request when the rate limit is reached', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsResponse(403, '', { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': (date.now + 1).toString() });
 
 				// Run
@@ -380,7 +380,7 @@ describe('AvatarManager', () => {
 
 			it('Should set the GitHub API timeout and requeue the request when the API returns a 5xx error', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsResponse(500, '');
 
 				// Run
@@ -404,7 +404,7 @@ describe('AvatarManager', () => {
 
 			it('Should set the GitHub API timeout and requeue the request when there is an HTTPS Client Request Error', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsClientRequestErrorEvent();
 
 				// Run
@@ -428,7 +428,7 @@ describe('AvatarManager', () => {
 
 			it('Should set the GitHub API timeout and requeue the request when there is an HTTPS Incoming Message Error', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsIncomingMessageErrorEvent();
 
 				// Run
@@ -452,7 +452,7 @@ describe('AvatarManager', () => {
 
 			it('Should set the GitHub API timeout and requeue the request once when there are multiple HTTPS Error Events', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				mockHttpsMultipleErrorEvents();
 
 				// Run
@@ -476,7 +476,7 @@ describe('AvatarManager', () => {
 
 			it('Should requeue the request when it\'s before the GitHub API timeout', async () => {
 				// Setup
-				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+				spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 				avatarManager['githubTimeout'] = (date.now + 1) * 1000;
 
 				// Run
@@ -520,14 +520,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'gitlab.com',
 					path: '/api/v4/users?search=user4@busydog.com',
-					headers: { 'User-Agent': 'vscode-vs-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
+					headers: { 'User-Agent': 'vscode-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'avatar-url',
 					path: '/',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -561,14 +561,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'gitlab.com',
 					path: '/api/v4/users?search=user4@busydog.com',
-					headers: { 'User-Agent': 'vscode-vs-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
+					headers: { 'User-Agent': 'vscode-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'avatar-url',
 					path: '/',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -602,14 +602,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'gitlab.com',
 					path: '/api/v4/users?search=user4@busydog.com',
-					headers: { 'User-Agent': 'vscode-vs-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
+					headers: { 'User-Agent': 'vscode-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -643,14 +643,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'gitlab.com',
 					path: '/api/v4/users?search=user4@busydog.com',
-					headers: { 'User-Agent': 'vscode-vs-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
+					headers: { 'User-Agent': 'vscode-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -680,14 +680,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'gitlab.com',
 					path: '/api/v4/users?search=user4@busydog.com',
-					headers: { 'User-Agent': 'vscode-vs-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
+					headers: { 'User-Agent': 'vscode-git-graph', 'Private-Token': 'w87U_3gAxWWaPtFgCcus' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'avatar-url',
 					path: '/',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -863,7 +863,7 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -878,7 +878,7 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -912,14 +912,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=identicon',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -949,14 +949,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=identicon',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -981,7 +981,7 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -1014,7 +1014,7 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -1049,14 +1049,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=identicon',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -1090,14 +1090,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=identicon',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -1131,14 +1131,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=identicon',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -1172,14 +1172,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=identicon',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -1216,14 +1216,14 @@ describe('AvatarManager', () => {
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
 				expect(spyOnHttpsGet).toHaveBeenCalledWith({
 					hostname: 'secure.gravatar.com',
 					path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=identicon',
-					headers: { 'User-Agent': 'vscode-vs-git-graph' },
+					headers: { 'User-Agent': 'vscode-git-graph' },
 					agent: false,
 					timeout: 15000
 				}, expect.anything());
@@ -1264,7 +1264,7 @@ describe('AvatarManager', () => {
 			expect(spyOnHttpsGet).toHaveBeenCalledWith({
 				hostname: 'secure.gravatar.com',
 				path: '/avatar/57853c107d1aeaa7da6f3096385cb848?s=162&d=404',
-				headers: { 'User-Agent': 'vscode-vs-git-graph' },
+				headers: { 'User-Agent': 'vscode-git-graph' },
 				agent: false,
 				timeout: 15000
 			}, expect.anything());
@@ -1305,7 +1305,7 @@ describe('AvatarManager', () => {
 			expect(spyOnHttpsGet).toHaveBeenCalledWith({
 				hostname: 'secure.gravatar.com',
 				path: '/avatar/57853c107d1aeaa7da6f3096385cb848?s=162&d=404',
-				headers: { 'User-Agent': 'vscode-vs-git-graph' },
+				headers: { 'User-Agent': 'vscode-git-graph' },
 				agent: false,
 				timeout: 15000
 			}, expect.anything());
@@ -1345,7 +1345,7 @@ describe('AvatarManager', () => {
 			expect(spyOnHttpsGet).toHaveBeenCalledWith({
 				hostname: 'secure.gravatar.com',
 				path: '/avatar/e36b61e2afd912d3665f1aa92932aa87?s=162&d=404',
-				headers: { 'User-Agent': 'vscode-vs-git-graph' },
+				headers: { 'User-Agent': 'vscode-git-graph' },
 				agent: false,
 				timeout: 15000
 			}, expect.anything());
@@ -1389,7 +1389,7 @@ describe('AvatarManager', () => {
 			expect(spyOnHttpsGet).toHaveBeenCalledWith({
 				hostname: 'secure.gravatar.com',
 				path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-				headers: { 'User-Agent': 'vscode-vs-git-graph' },
+				headers: { 'User-Agent': 'vscode-git-graph' },
 				agent: false,
 				timeout: 15000
 			}, expect.anything());
@@ -1403,7 +1403,7 @@ describe('AvatarManager', () => {
 			expect(spyOnHttpsGet).toHaveBeenCalledWith({
 				hostname: 'secure.gravatar.com',
 				path: '/avatar/da4173f868c17bcd6353cdba41070ca9?s=162&d=404',
-				headers: { 'User-Agent': 'vscode-vs-git-graph' },
+				headers: { 'User-Agent': 'vscode-git-graph' },
 				agent: false,
 				timeout: 15000
 			}, expect.anything());
@@ -1438,7 +1438,7 @@ describe('AvatarManager', () => {
 			expect(spyOnHttpsGet).toHaveBeenCalledWith({
 				hostname: 'secure.gravatar.com',
 				path: '/avatar/530a7b02594e057f39179d3bd8b849f0?s=162&d=404',
-				headers: { 'User-Agent': 'vscode-vs-git-graph' },
+				headers: { 'User-Agent': 'vscode-git-graph' },
 				agent: false,
 				timeout: 15000
 			}, expect.anything());
@@ -1471,7 +1471,7 @@ describe('AvatarManager', () => {
 			expect(spyOnHttpsGet).toHaveBeenCalledWith({
 				hostname: 'secure.gravatar.com',
 				path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-				headers: { 'User-Agent': 'vscode-vs-git-graph' },
+				headers: { 'User-Agent': 'vscode-git-graph' },
 				agent: false,
 				timeout: 15000
 			}, expect.anything());
@@ -1501,7 +1501,7 @@ describe('AvatarManager', () => {
 			expect(spyOnHttpsGet).toHaveBeenCalledWith({
 				hostname: 'secure.gravatar.com',
 				path: '/avatar/0ca9d3f228e867bd4feb6d62cc2edbfe?s=162&d=404',
-				headers: { 'User-Agent': 'vscode-vs-git-graph' },
+				headers: { 'User-Agent': 'vscode-git-graph' },
 				agent: false,
 				timeout: 15000
 			}, expect.anything());
@@ -1515,7 +1515,7 @@ describe('AvatarManager', () => {
 
 		it('Should add new commits to existing records queued for the same user in the same repository', async () => {
 			// Setup
-			spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+			spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 			mockHttpsResponse(403, '', { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': (date.now + 1).toString() });
 
 			// Run
@@ -1560,7 +1560,7 @@ describe('AvatarManager', () => {
 
 		it('Should insert requests into the priority queue in the correct order', async () => {
 			// Setup
-			spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydog/test-repo.git');
+			spyOnGetRemoteUrl.mockResolvedValueOnce('https://github.com/busydoggo/test-repo.git');
 			mockHttpsResponse(403, '', { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': (date.now + 1).toString() });
 
 			// Run

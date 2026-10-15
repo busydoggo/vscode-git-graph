@@ -55,7 +55,7 @@ export class RepoManager extends Disposable {
 		this.maxDepthOfRepoSearch = getConfig().maxDepthOfRepoSearch;
 		this.updateRepoSelectionContext();
 
-		this.configWatcher = vscode.workspace.createFileSystemWatcher('**/.vscode/vscode-vs-git-graph.json');
+		this.configWatcher = vscode.workspace.createFileSystemWatcher('**/.vscode/vscode-git-graph.json');
 		this.configWatcher.onDidCreate(this.onConfigWatcherCreateOrChange.bind(this));
 		this.configWatcher.onDidChange(this.onConfigWatcherCreateOrChange.bind(this));
 
@@ -734,7 +734,7 @@ export class RepoManager extends Disposable {
 						return true;
 					}
 				} else {
-					showErrorMessage('The value for "' + validationError + '" in the configuration file "' + getPathFromStr(path.join(repo, '.vscode', 'vscode-vs-git-graph.json')) + '" is invalid.');
+					showErrorMessage('The value for "' + validationError + '" in the configuration file "' + getPathFromStr(path.join(repo, '.vscode', 'vscode-git-graph.json')) + '" is invalid.');
 				}
 			}
 		} catch (_) { }
@@ -876,7 +876,7 @@ export namespace ExternalRepoConfig {
  */
 function readExternalConfigFile(repo: string) {
 	return new Promise<Readonly<ExternalRepoConfig.File> | null>((resolve) => {
-		fs.readFile(path.join(repo, '.vscode', 'vscode-vs-git-graph.json'), (err, data) => {
+		fs.readFile(path.join(repo, '.vscode', 'vscode-git-graph.json'), (err, data) => {
 			if (err) {
 				resolve(null);
 			} else {
@@ -902,7 +902,7 @@ function writeExternalConfigFile(repo: string, file: ExternalRepoConfig.File) {
 		const vscodePath = path.join(repo, '.vscode');
 		fs.mkdir(vscodePath, (err) => {
 			if (!err || err.code === 'EEXIST') {
-				const configPath = path.join(vscodePath, 'vscode-vs-git-graph.json');
+				const configPath = path.join(vscodePath, 'vscode-git-graph.json');
 				fs.writeFile(configPath, JSON.stringify(file, null, 4), (err) => {
 					if (err) {
 						reject('Failed to write the Git Graph Repository Configuration File to "' + getPathFromStr(configPath) + '".');

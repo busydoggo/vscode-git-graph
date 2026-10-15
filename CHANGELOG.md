@@ -1,5 +1,11 @@
 # Change Log
 
+## 1.31.1 - 2026-10-16
+
+* Added Simplified Chinese translations for extension settings.
+* Changed the default commit date format to `YYYY/MM/DD HH:mm`.
+* Added a Chinese README with language links and instructions for building, packaging, and installing the extension.
+
 ## 1.31.0 - 2026-10-14
 * Added a Copy Diff button to the Commit Details and Comparison Views, which copies the Git patch to the clipboard with `-U999999999` context.
 * Supports initial commits, commit comparisons, and uncommitted changes.
@@ -113,7 +119,7 @@
 * #250 New "Pull Request Creation" Integration automates the opening and pre-filling of a Pull Request form, directly from a branches context menu.
     * Configured from the Repository Settings Widget.
         * Support for the publicly hosted Bitbucket, GitHub and GitLab Pull Request providers is built-in.
-        * Custom Pull Request providers can be configured using the extension setting `vs-git-graph.customPullRequestProviders` (e.g. for use with privately hosted Pull Request providers). Information on how to configure custom providers is available [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
+        * Custom Pull Request providers can be configured using the extension setting `vs-git-graph.customPullRequestProviders` (e.g. for use with privately hosted Pull Request providers). Information on how to configure custom providers is available [here](https://github.com/busydoggo/vscode-git-graph/wiki/Configuring-a-custom-Pull-Request-Provider).
     * Once configured, a new "Create Pull Request" option is available on the right click context menus of local and remote branches.
 * #251 Added a "Record Origin" option to the "Cherry Pick" Dialog. The default value of this new option can be set using the extension setting `vs-git-graph.dialog.cherryPick.recordOrigin`. Default: false (disabled)
 * #253 New Command "Git Graph: End a specific Code Review in Workspace..." ends a specific Code Review without having to first open it in the Git Graph View.
@@ -167,7 +173,7 @@
 ## 1.18.0 - 2019-11-05
 * #202 New File List View in the Commit Details / Comparison Views, as an alternative to the existing File Tree View. The default File View Type can be specified using the setting `vs-git-graph.commitDetailsView.fileView.type`. This can be overridden per repository using the new controls on the right side of the Commit Details / Comparison Views.
 * #197 Improved the default column widths when the table is being automatically laid out on narrow width views.
-* #198 Customise which context menu actions are visible with the new extension setting `vs-git-graph.contextMenuActionsVisibility`. For more information, see the documentation [here](https://github.com/busydog/vscode-vs-git-graph/wiki/Extension-Settings#context-menu-actions-visibility).
+* #198 Customise which context menu actions are visible with the new extension setting `vs-git-graph.contextMenuActionsVisibility`. For more information, see the documentation [here](https://github.com/busydoggo/vscode-git-graph/wiki/Extension-Settings#context-menu-actions-visibility).
 * #204 Added a new option to reinstate indexed changes on both the apply and pop stash actions.
 * #205 Dialogs now use custom input controls to create a more seamless experience, that respects the active Visual Studio Code Color Theme.
 * Various code and UI improvements.

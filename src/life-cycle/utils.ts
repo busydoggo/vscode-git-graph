@@ -4,7 +4,7 @@
  * - The two version numbers recorded in these events only allow aggregate compatibility information to be generated (e.g. 50% of users are
  *   using Visual Studio Code >= 1.41.0). These insights enable Git Graph to utilise the latest features of Visual Studio Code as soon as
  *   the majority of users are using a compatible version. The data cannot, and will not, be used for any other purpose.
- * - Full details are available at: https://api.busydog.com/vscode-vs-git-graph/about
+ * - Full details are available at: https://api.busydog.com/vscode-git-graph/about
  */
 
 import * as crypto from 'crypto';
@@ -156,7 +156,7 @@ function sendEvent(event: LifeCycleEvent) {
 		};
 
 		const sendEvent: Omit<LifeCycleEvent, 'stage'> & { about: string, stage?: LifeCycleStage } = Object.assign({
-			about: 'Information about this API is available at: https://api.busydog.com/vscode-vs-git-graph/about'
+			about: 'Information about this API is available at: https://api.busydog.com/vscode-git-graph/about'
 		}, event);
 		delete sendEvent.stage;
 
@@ -164,7 +164,7 @@ function sendEvent(event: LifeCycleEvent) {
 		https.request({
 			method: 'POST',
 			hostname: 'api.busydog.com',
-			path: '/vscode-vs-git-graph/' + (event.stage === LifeCycleStage.Install ? 'install' : event.stage === LifeCycleStage.Update ? 'update' : 'uninstall'),
+			path: '/vscode-git-graph/' + (event.stage === LifeCycleStage.Install ? 'install' : event.stage === LifeCycleStage.Update ? 'update' : 'uninstall'),
 			headers: {
 				'Content-Type': 'application/json',
 				'Content-Length': content.length

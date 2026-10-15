@@ -1881,15 +1881,15 @@ describe('GitGraphView', () => {
 					repo: '/path/to/repo',
 					nameOld: 'old-origin',
 					nameNew: 'new-origin',
-					urlOld: 'https://github.com/busydog/old.git',
-					urlNew: 'https://github.com/busydog/new.git',
-					pushUrlOld: 'https://github.com/busydog/old-push.git',
-					pushUrlNew: 'https://github.com/busydog/new-push.git'
+					urlOld: 'https://github.com/busydoggo/old.git',
+					urlNew: 'https://github.com/busydoggo/new.git',
+					pushUrlOld: 'https://github.com/busydoggo/old-push.git',
+					pushUrlNew: 'https://github.com/busydoggo/new-push.git'
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnEditRemote).toHaveBeenCalledWith('/path/to/repo', 'old-origin', 'new-origin', 'https://github.com/busydog/old.git', 'https://github.com/busydog/new.git', 'https://github.com/busydog/old-push.git', 'https://github.com/busydog/new-push.git');
+					expect(spyOnEditRemote).toHaveBeenCalledWith('/path/to/repo', 'old-origin', 'new-origin', 'https://github.com/busydoggo/old.git', 'https://github.com/busydoggo/new.git', 'https://github.com/busydoggo/old-push.git', 'https://github.com/busydoggo/new-push.git');
 					expect(messages).toStrictEqual([
 						{
 							command: 'editRemote',

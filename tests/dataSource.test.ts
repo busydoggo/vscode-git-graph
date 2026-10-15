@@ -2397,8 +2397,8 @@ describe('DataSource', () => {
 				'user.name\nLocal Name\0' +
 				'user.email\nunused@busydog.com\0' +
 				'user.email\nlocal@busydog.com\0' +
-				'remote.origin.url\nhttps://github.com/busydog/vscode-vs-git-graph.git\0' +
-				'remote.origin.pushurl\nhttps://github.com/busydog/vscode-vs-git-graph-push.git\0' +
+				'remote.origin.url\nhttps://github.com/busydoggo/vscode-git-graph.git\0' +
+				'remote.origin.pushurl\nhttps://github.com/busydoggo/vscode-git-graph-push.git\0' +
 				'remote.origin.fetch\n+refs/heads/*:refs/remotes/origin/*\0' +
 				'branch.master.remote\norigin\0' +
 				'branch.master.pushremote\norigin2\0' +
@@ -2443,8 +2443,8 @@ describe('DataSource', () => {
 					remotes: [
 						{
 							name: 'origin',
-							url: 'https://github.com/busydog/vscode-vs-git-graph.git',
-							pushUrl: 'https://github.com/busydog/vscode-vs-git-graph-push.git'
+							url: 'https://github.com/busydoggo/vscode-git-graph.git',
+							pushUrl: 'https://github.com/busydoggo/vscode-git-graph-push.git'
 						}
 					],
 					user: {
@@ -2473,7 +2473,7 @@ describe('DataSource', () => {
 			);
 			mockGitSuccessOnce(
 				'user.email\nlocal@busydog.com\0' +
-				'remote.origin.url\nhttps://github.com/busydog/vscode-vs-git-graph.git\0'
+				'remote.origin.url\nhttps://github.com/busydoggo/vscode-git-graph.git\0'
 			);
 			mockGitSuccessOnce(
 				'user.name\nGlobal Name\0'
@@ -2492,7 +2492,7 @@ describe('DataSource', () => {
 					remotes: [
 						{
 							name: 'origin',
-							url: 'https://github.com/busydog/vscode-vs-git-graph.git',
+							url: 'https://github.com/busydoggo/vscode-git-graph.git',
 							pushUrl: null
 						}
 					],
@@ -2566,8 +2566,8 @@ describe('DataSource', () => {
 				'user.name\nLocal\r\nMultiline\nName\0' +
 				'user.email\nunused@busydog.com\0' +
 				'user.email\nlocal@busydog.com\0' +
-				'remote.origin.url\nhttps://github.com/busydog/vscode-vs-git-graph.git\0' +
-				'remote.origin.pushurl\nhttps://github.com/busydog/vscode-vs-git-graph-push.git\0' +
+				'remote.origin.url\nhttps://github.com/busydoggo/vscode-git-graph.git\0' +
+				'remote.origin.pushurl\nhttps://github.com/busydoggo/vscode-git-graph-push.git\0' +
 				'remote.origin.fetch\n+refs/heads/*:refs/remotes/origin/*\0'
 			);
 			mockGitThrowingErrorOnce('fatal: unable to read config file \'c:/users/michael/.gitconfig\': no such file or directory');
@@ -2585,8 +2585,8 @@ describe('DataSource', () => {
 					remotes: [
 						{
 							name: 'origin',
-							url: 'https://github.com/busydog/vscode-vs-git-graph.git',
-							pushUrl: 'https://github.com/busydog/vscode-vs-git-graph-push.git'
+							url: 'https://github.com/busydoggo/vscode-git-graph.git',
+							pushUrl: 'https://github.com/busydoggo/vscode-git-graph-push.git'
 						}
 					],
 					user: {
@@ -2635,8 +2635,8 @@ describe('DataSource', () => {
 				'user.name\nLocal Name\0' +
 				'user.email\nunused@busydog.com\0' +
 				'user.email\nlocal@busydog.com\0' +
-				'remote.origin.url\nhttps://github.com/busydog/vscode-vs-git-graph.git\0' +
-				'remote.origin.pushurl\nhttps://github.com/busydog/vscode-vs-git-graph-push.git\0' +
+				'remote.origin.url\nhttps://github.com/busydoggo/vscode-git-graph.git\0' +
+				'remote.origin.pushurl\nhttps://github.com/busydoggo/vscode-git-graph-push.git\0' +
 				'remote.origin.fetch\n+refs/heads/*:refs/remotes/origin/*\0'
 			);
 			spyOnSpawn.mockImplementationOnce(() => {
@@ -3818,13 +3818,13 @@ describe('DataSource', () => {
 	describe('getRemoteUrl', () => {
 		it('Should return the url of the remote', async () => {
 			// Setup
-			mockGitSuccessOnce('https://github.com/busydog/vscode-vs-git-graph.git\n');
+			mockGitSuccessOnce('https://github.com/busydoggo/vscode-git-graph.git\n');
 
 			// Run
 			const result = await dataSource.getRemoteUrl('/path/to/repo', 'origin');
 
 			// Assert
-			expect(result).toBe('https://github.com/busydog/vscode-vs-git-graph.git');
+			expect(result).toBe('https://github.com/busydoggo/vscode-git-graph.git');
 			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['config', '--get', 'remote.origin.url'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
@@ -4223,25 +4223,25 @@ describe('DataSource', () => {
 			// Setup
 			const spyOnReadFile = jest.spyOn(fs, 'readFile');
 			spyOnReadFile.mockImplementationOnce((...args) => ((args as unknown) as [fs.PathLike, any, (err: NodeJS.ErrnoException | null, data: string) => void])[2](null,
-				'[submodule "folder/vscode-vs-git-graph-1"]\n' +
-				'	path = folder/vscode-vs-git-graph-1\n' +
-				'	url = https://github.com/busydog/vscode-vs-git-graph\n' +
-				'[submodule "folder/vscode-vs-git-graph-2"]\n' +
-				'	path = folder/vscode-vs-git-graph-2\n' +
-				'	url = https://github.com/busydog/vscode-vs-git-graph\n' +
-				'[submodule "folder/vscode-vs-git-graph-3"]\n' +
-				'	path = folder/vscode-vs-git-graph-3\n' +
-				'	url = https://github.com/busydog/vscode-vs-git-graph\n'
+				'[submodule "folder/vscode-git-graph-1"]\n' +
+				'	path = folder/vscode-git-graph-1\n' +
+				'	url = https://github.com/busydoggo/vscode-git-graph\n' +
+				'[submodule "folder/vscode-git-graph-2"]\n' +
+				'	path = folder/vscode-git-graph-2\n' +
+				'	url = https://github.com/busydoggo/vscode-git-graph\n' +
+				'[submodule "folder/vscode-git-graph-3"]\n' +
+				'	path = folder/vscode-git-graph-3\n' +
+				'	url = https://github.com/busydoggo/vscode-git-graph\n'
 			));
-			mockGitSuccessOnce('/path/to/repo/folder/vscode-vs-git-graph-1');
-			mockGitSuccessOnce('/path/to/repo/folder/vscode-vs-git-graph-2');
+			mockGitSuccessOnce('/path/to/repo/folder/vscode-git-graph-1');
+			mockGitSuccessOnce('/path/to/repo/folder/vscode-git-graph-2');
 			mockGitThrowingErrorOnce();
 
 			// Run
 			const result = await dataSource.getSubmodules('/path/to/repo');
 
 			// Assert
-			expect(result).toStrictEqual(['/path/to/repo/folder/vscode-vs-git-graph-1', '/path/to/repo/folder/vscode-vs-git-graph-2']);
+			expect(result).toStrictEqual(['/path/to/repo/folder/vscode-git-graph-1', '/path/to/repo/folder/vscode-git-graph-2']);
 			const [path, options] = spyOnReadFile.mock.calls[0];
 			expect(utils.getPathFromStr(path as string)).toBe('/path/to/repo/.gitmodules');
 			expect(options).toStrictEqual({ encoding: 'utf8' });
@@ -4420,12 +4420,12 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydog/vscode-vs-git-graph.git', null, false);
+			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydoggo/vscode-git-graph.git', null, false);
 
 			// Assert
 			expect(result).toBe(null);
 			expect(spyOnSpawn).toBeCalledTimes(1);
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'add', 'origin', 'https://github.com/busydog/vscode-vs-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'add', 'origin', 'https://github.com/busydoggo/vscode-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should add a remote (with a push url)', async () => {
@@ -4434,13 +4434,13 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydog/vscode-vs-git-graph.git', 'https://github.com/busydog/vscode-vs-git-graph.git', false);
+			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydoggo/vscode-git-graph.git', 'https://github.com/busydoggo/vscode-git-graph.git', false);
 
 			// Assert
 			expect(result).toBe(null);
 			expect(spyOnSpawn).toBeCalledTimes(2);
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'add', 'origin', 'https://github.com/busydog/vscode-vs-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', 'origin', '--push', 'https://github.com/busydog/vscode-vs-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'add', 'origin', 'https://github.com/busydoggo/vscode-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', 'origin', '--push', 'https://github.com/busydoggo/vscode-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should add and fetch a remote', async () => {
@@ -4449,12 +4449,12 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydog/vscode-vs-git-graph.git', null, true);
+			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydoggo/vscode-git-graph.git', null, true);
 
 			// Assert
 			expect(result).toBe(null);
 			expect(spyOnSpawn).toBeCalledTimes(2);
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'add', 'origin', 'https://github.com/busydog/vscode-vs-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'add', 'origin', 'https://github.com/busydoggo/vscode-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
 			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['fetch', 'origin'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
@@ -4463,7 +4463,7 @@ describe('DataSource', () => {
 			mockGitThrowingErrorOnce();
 
 			// Run
-			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydog/vscode-vs-git-graph.git', null, false);
+			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydoggo/vscode-git-graph.git', null, false);
 
 			// Assert
 			expect(result).toBe('error message');
@@ -4475,7 +4475,7 @@ describe('DataSource', () => {
 			mockGitThrowingErrorOnce();
 
 			// Run
-			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydog/vscode-vs-git-graph.git', 'https://github.com/busydog/vscode-vs-git-graph.git', true);
+			const result = await dataSource.addRemote('/path/to/repo', 'origin', 'https://github.com/busydoggo/vscode-git-graph.git', 'https://github.com/busydoggo/vscode-git-graph.git', true);
 
 			// Assert
 			expect(result).toBe('error message');
@@ -4526,11 +4526,11 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', 'https://github.com/busydog/vscode-vs-git-graph.git', null, null, null);
+			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', 'https://github.com/busydoggo/vscode-git-graph.git', null, null, null);
 
 			// Assert
 			expect(result).toBe(null);
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', 'origin', '--delete', 'https://github.com/busydog/vscode-vs-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', 'origin', '--delete', 'https://github.com/busydoggo/vscode-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should add a url to the remote', async () => {
@@ -4538,11 +4538,11 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, 'https://github.com/busydog/vscode-vs-git-graph.git', null, null);
+			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, 'https://github.com/busydoggo/vscode-git-graph.git', null, null);
 
 			// Assert
 			expect(result).toBe(null);
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', 'origin', '--add', 'https://github.com/busydog/vscode-vs-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', 'origin', '--add', 'https://github.com/busydoggo/vscode-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should update the url of a the remote', async () => {
@@ -4550,11 +4550,11 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', 'https://github.com/busydog/vscode-vs-git-graph-old.git', 'https://github.com/busydog/vscode-vs-git-graph-new.git', null, null);
+			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', 'https://github.com/busydoggo/vscode-git-graph-old.git', 'https://github.com/busydoggo/vscode-git-graph-new.git', null, null);
 
 			// Assert
 			expect(result).toBe(null);
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', 'origin', 'https://github.com/busydog/vscode-vs-git-graph-new.git', 'https://github.com/busydog/vscode-vs-git-graph-old.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', 'origin', 'https://github.com/busydoggo/vscode-git-graph-new.git', 'https://github.com/busydoggo/vscode-git-graph-old.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should delete the push url of a remote', async () => {
@@ -4562,11 +4562,11 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, null, 'https://github.com/busydog/vscode-vs-git-graph.git', null);
+			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, null, 'https://github.com/busydoggo/vscode-git-graph.git', null);
 
 			// Assert
 			expect(result).toBe(null);
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', '--push', 'origin', '--delete', 'https://github.com/busydog/vscode-vs-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', '--push', 'origin', '--delete', 'https://github.com/busydoggo/vscode-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should add a push url to the remote', async () => {
@@ -4574,11 +4574,11 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, null, null, 'https://github.com/busydog/vscode-vs-git-graph.git');
+			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, null, null, 'https://github.com/busydoggo/vscode-git-graph.git');
 
 			// Assert
 			expect(result).toBe(null);
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', '--push', 'origin', '--add', 'https://github.com/busydog/vscode-vs-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', '--push', 'origin', '--add', 'https://github.com/busydoggo/vscode-git-graph.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should update the push url of a the remote', async () => {
@@ -4586,11 +4586,11 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, null, 'https://github.com/busydog/vscode-vs-git-graph-old.git', 'https://github.com/busydog/vscode-vs-git-graph-new.git');
+			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, null, 'https://github.com/busydoggo/vscode-git-graph-old.git', 'https://github.com/busydoggo/vscode-git-graph-new.git');
 
 			// Assert
 			expect(result).toBe(null);
-			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', '--push', 'origin', 'https://github.com/busydog/vscode-vs-git-graph-new.git', 'https://github.com/busydog/vscode-vs-git-graph-old.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['remote', 'set-url', '--push', 'origin', 'https://github.com/busydoggo/vscode-git-graph-new.git', 'https://github.com/busydoggo/vscode-git-graph-old.git'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should return an error message thrown by git (when renaming a remote)', async () => {
@@ -4609,7 +4609,7 @@ describe('DataSource', () => {
 			mockGitThrowingErrorOnce();
 
 			// Run
-			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, 'https://github.com/busydog/vscode-vs-git-graph.git', null, null);
+			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, 'https://github.com/busydoggo/vscode-git-graph.git', null, null);
 
 			// Assert
 			expect(result).toBe('error message');
@@ -4620,7 +4620,7 @@ describe('DataSource', () => {
 			mockGitThrowingErrorOnce();
 
 			// Run
-			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, null, null, 'https://github.com/busydog/vscode-vs-git-graph.git');
+			const result = await dataSource.editRemote('/path/to/repo', 'origin', 'origin', null, null, null, 'https://github.com/busydoggo/vscode-git-graph.git');
 
 			// Assert
 			expect(result).toBe('error message');
