@@ -1,8 +1,10 @@
 # Git Graph extension for Visual Studio Code
 
+English | [简体中文](README.zh-CN.md)
+
 View a Git Graph of your repository, and easily perform Git actions from the graph. Configurable to look the way you want!
 
-![Recording of Git Graph](https://github.com/busydog/vscode-vs-git-graph/raw/master/resources/demo.gif)
+![Recording of Git Graph](https://raw.githubusercontent.com/busydoggo/vscode-git-graph/main/resources/demo.gif)
 
 ## Features
 
@@ -157,6 +159,50 @@ This extension contributes the following commands:
 * `vs-git-graph.removeGitRepository`: Git Graph: Remove Git Repository... _(used to remove repositories from Git Graph)_
 * `vs-git-graph.resumeWorkspaceCodeReview`: Git Graph: Resume a specific Code Review in Workspace... _(used to open the Git Graph View to a Code Review that is already in progress)_
 * `vs-git-graph.version`: Git Graph: Get Version Information
+
+## Building and Packaging
+
+Install Node.js and npm, then run the following commands from the repository root.
+
+### Install dependencies
+
+```sh
+npm ci
+```
+
+This installs both runtime and development dependencies using `package-lock.json`.
+
+### Compile the extension
+
+```sh
+npm run compile
+```
+
+This runs ESLint, cleans previous build output, compiles the extension backend into `out/`, and compiles and bundles the webview JavaScript and CSS into `media/`.
+
+For incremental development, use `npm run compile-src` for the backend, `npm run compile-web` for the webview, or `npm run compile-web-debug` for an unminified webview build. Run `npm run compile-src` before the first webview build, and whenever shared backend types change.
+
+### Package a VSIX
+
+```sh
+npm exec --yes --package @vscode/vsce -- vsce package
+```
+
+This downloads the packaging tool if needed, without requiring a global installation. Packaging automatically runs `npm run vscode:prepublish`, which runs the full compile process, so a separate compile step is optional when packaging.
+
+The package is created in the repository root as `vs-git-graph-<version>.vsix`, using the version in `package.json` (for example, `vs-git-graph-1.31.1.vsix`).
+
+If `vsce` is already installed and available on your `PATH`, you can also use `npm run package`.
+
+### Install the package locally
+
+With the Visual Studio Code `code` command available on your `PATH`, run:
+
+```sh
+code --install-extension ./vs-git-graph-1.31.1.vsix --force
+```
+
+Replace the filename if the version changes, then run **Developer: Reload Window** in Visual Studio Code. Alternatively, use **Extensions: Install from VSIX...** in the Command Palette and select the generated file.
 
 ## Release Notes
 

@@ -1,5 +1,11 @@
 # Change Log
 
+## 1.31.1 - 2026-10-16
+
+* Added Simplified Chinese translations for extension settings.
+* Changed the default commit date format to `YYYY/MM/DD HH:mm`.
+* Added a Chinese README with language links and instructions for building, packaging, and installing the extension.
+
 ## 1.31.0 - 2026-10-14
 * Added a Copy Diff button to the Commit Details and Comparison Views, which copies the Git patch to the clipboard with `-U999999999` context.
 * Supports initial commits, commit comparisons, and uncommitted changes.
