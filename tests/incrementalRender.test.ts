@@ -21,28 +21,33 @@ function setup(commits = [commit('a', ['b']), commit('b')]) {
 	dom.window.HTMLElement.prototype.scroll = function (this: any, _x: number, y: number) { this.scrollTop = y; };
 	const config = {
 		fetchAvatars: false, markdown: false, dateFormat: { type: 0, iso: true },
+		onRepoLoad: { scrollToHead: false },
 		referenceLabels: { tagLabelsOnRight: true, combineLocalAndRemoteBranchLabels: true },
 		commitDetailsView: { fileTreeCompactFolders: false },
 		graph: { grid: { x: 16, y: 24, offsetX: 16, offsetY: 12, expandY: 100 }, colours: ['red', 'blue'], style: 0, uncommittedChanges: 0 }
 	};
+	const dialog = { showError: jest.fn(), closeActionRunning: jest.fn(), isOpen: () => false, isTargetDynamicSource: () => false };
 	const { View, Graph, FindWidget, Renderer } = vm.runInNewContext(script + '\n({View: GitGraphView, Graph, FindWidget, Renderer: CommitTableRenderer});', {
 		document, window: dom.window, getComputedStyle: dom.window.getComputedStyle, setTimeout: jest.fn(), clearTimeout: jest.fn(),
 		initialState: { config }, acquireVsCodeApi: () => ({ postMessage: sent }),
-		GG: { FileViewType: { List: 1 }, GitFileStatus: { Modified: 'M' }, DateFormatType: { DateAndTime: 0, DateOnly: 1 }, GraphStyle: { Angular: 0 }, GraphUncommittedChangesStyle: { OpenCircleAtTheUncommittedChanges: 0, OpenCircleAtTheCheckedOutCommit: 1 } },
+		dialog, contextMenu: { isOpen: () => false, isTargetDynamicSource: () => false },
+		GG: { FileViewType: { List: 1 }, GitFileStatus: { Modified: 'M', Deleted: 'D', Added: 'A', Untracked: 'U', Renamed: 'R' }, DateFormatType: { DateAndTime: 0, DateOnly: 1 }, GraphStyle: { Angular: 0 }, GraphUncommittedChangesStyle: { OpenCircleAtTheUncommittedChanges: 0, OpenCircleAtTheCheckedOutCommit: 1 } },
 		CLASS_INTERNAL_URL: 'internalUrl', CLASS_EXTERNAL_URL: 'externalUrl',
 		TextFormatter: class { public format(value: string) { return value; } },
 		ResizeObserver: class { public observe() { } public disconnect() { } }
 	});
 	const view = Object.assign(Object.create(View.prototype), {
 		commits, loadedCommits: commits, commitLookup: {}, commitHead: 'a', gitBranchHead: 'main',
-		authorFilter: '', currentRepo: '/repo', gitRepos: { '/repo': { issueLinkingConfig: null } }, config, avatars: {},
+		authorFilter: '', currentRepo: '/repo', gitRepos: { '/repo': { issueLinkingConfig: null } }, config, avatars: {}, gitBranches: [], gitTags: [], onlyFollowFirstParent: false,
+		currentRepoLoading: false, currentRepoRefreshState: { inProgress: false, hard: false, loadCommitsRefreshId: 0, repoInfoChanges: false },
 		viewElem: document.getElementById('view'), tableElem: document.getElementById('commitTable'), footerElem: document.getElementById('footer'),
-		tableRenderer: new Renderer(), branchLabelLayouts: new WeakMap(), commitDetailsRenderState: null, copyCommitDiffInProgress: false, gitConfig: null,
+		tableRenderer: new Renderer(), branchLabelLayouts: new WeakMap(), commitDetailsRenderState: null, copyCommitDiffInProgress: false, revertFileInProgress: false, gitConfig: null,
 		authorFilterInput: document.createElement('input'), authorFilterWidget: document.createElement('div'), authorFilterClear: document.createElement('button'),
 		expandedCommit: null, moreCommitsAvailable: true, graphHeaderResizeObserver: null,
 		branchDropdown: { mount: jest.fn(), refresh: jest.fn() }, makeTableResizable: jest.fn(), updateGraphHeaderLayout: jest.fn(),
 		saveState: jest.fn(), scrollToCommit: jest.fn(), loadMoreCommits: jest.fn(), requestCommitDetails: jest.fn(), requestCommitComparison: jest.fn(),
 		getColumnVisibility: () => ({ date: true, author: true, commit: true }), isCdvDocked: () => false,
+		requestAvatars: jest.fn(), finaliseRepoLoad: jest.fn(), updateToolbarState: jest.fn(),
 		showCommitDetails: jest.fn(), showCommitComparison: jest.fn(), loadCommitDetails: jest.fn(), renderCommitDetailsView: jest.fn(),
 		getFileViewType: () => 1, setCdvHeight: jest.fn(), setCdvDivider: jest.fn(), makeCdvResizable: jest.fn(), makeCdvDividerDraggable: jest.fn(), makeCdvFileViewInteractive: jest.fn()
 	});
@@ -58,7 +63,7 @@ function setup(commits = [commit('a', ['b']), commit('b')]) {
 		view.graph.render(view.expandedCommit);
 	};
 	update();
-	return { dom, document, view, sent, update, renderDetails: () => View.prototype.renderCommitDetailsView.call(view, true), row: (hash: string) => document.querySelector('tr[data-hash="' + hash + '"]') };
+	return { dom, document, view, sent, dialog, update, renderDetails: () => View.prototype.renderCommitDetailsView.call(view, true), wireFiles: () => View.prototype.makeCdvFileViewInteractive.call(view), row: (hash: string) => document.querySelector('tr[data-hash="' + hash + '"]') };
 }
 
 function openDetails(view: any, row: (hash: string) => any, hash: string, parents: string[] = ['b']) {
@@ -72,6 +77,66 @@ function openDetails(view: any, row: (hash: string) => any, hash: string, parent
 }
 
 describe('Incremental Git Graph rendering', () => {
+	it.each([null, 'fatal: bad revision \'HEAD\''])('Shows an empty repository inline without a dialog and recovers after the first commit (error: %s)', error => {
+		const { document, view, row, dialog } = setup();
+		const header = document.getElementById('tableColHeaders');
+		view.currentRepoLoading = true;
+		Object.assign(view.currentRepoRefreshState, { inProgress: true, hard: true, loadCommitsRefreshId: 1 });
+		const empty = { command: 'loadCommits', refreshId: 1, commits: [], head: null, tags: [], moreCommitsAvailable: false, onlyFollowFirstParent: false, error };
+		view.processLoadCommitsResponse(empty);
+		const message = document.getElementById('noCommitsMessage');
+		expect(message.textContent).toBe('There are no commits in this repository.');
+		expect(message.closest('#view')).not.toBeNull();
+		expect(document.querySelectorAll('tr.commit')).toHaveLength(0);
+		expect(dialog.showError).not.toHaveBeenCalled();
+		expect(dialog.closeActionRunning).toHaveBeenCalledTimes(1);
+		expect(view.currentRepoLoading).toBe(false);
+		expect(view.currentRepoRefreshState.inProgress).toBe(false);
+		expect(view.finaliseRepoLoad).toHaveBeenCalledWith(true);
+		Object.assign(view.currentRepoRefreshState, { inProgress: true, hard: false, loadCommitsRefreshId: 2 });
+		view.processLoadCommitsResponse({ ...empty, refreshId: 2 });
+		expect(document.getElementById('noCommitsMessage')).toBe(message);
+		view.gitBranches = ['main'];
+		Object.assign(view.currentRepoRefreshState, { inProgress: true, loadCommitsRefreshId: 3 });
+		view.processLoadCommitsResponse({ ...empty, refreshId: 3, commits: [commit('first')], head: 'first', error: null });
+		expect(document.getElementById('noCommitsMessage')).toBeNull();
+		expect(row('first')).not.toBeNull();
+		expect(document.getElementById('tableColHeaders')).toBe(header);
+		expect(dialog.showError).not.toHaveBeenCalled();
+	});
+
+	it('Distinguishes an empty filter result from an empty repository', () => {
+		const { document, view, update } = setup([]);
+		view.gitBranches = ['main'];
+		update([]);
+		expect(document.getElementById('noCommitsMessage').textContent).toBe('No commits match the current filters.');
+		expect(document.getElementById('loadMoreCommitsBtn')).not.toBeNull();
+	});
+
+	it('Ignores outdated empty-repository errors after another refresh has started', () => {
+		const { document, view, row, dialog } = setup();
+		const existing = row('a');
+		Object.assign(view.currentRepoRefreshState, { inProgress: true, loadCommitsRefreshId: 2 });
+		view.processLoadCommitsResponse({ refreshId: 1, error: 'fatal: bad revision \'HEAD\'' });
+		expect(row('a')).toBe(existing);
+		expect(document.getElementById('noCommitsMessage')).toBeNull();
+		expect(view.currentRepoRefreshState.inProgress).toBe(true);
+		expect(dialog.showError).not.toHaveBeenCalled();
+	});
+
+	it('Reports actual Git failures and recovers to an inline empty state when retried', () => {
+		const { document, view, dialog } = setup();
+		view.gitBranchHead = null;
+		Object.assign(view.currentRepoRefreshState, { inProgress: true, loadCommitsRefreshId: 1 });
+		view.processLoadCommitsResponse({ refreshId: 1, error: 'fatal: permission denied' });
+		expect(dialog.showError).toHaveBeenCalledWith('Unable to load Commits', 'fatal: permission denied', 'Retry', expect.any(Function));
+		expect(document.getElementById('noCommitsMessage')).toBeNull();
+		Object.assign(view.currentRepoRefreshState, { inProgress: true, loadCommitsRefreshId: 2 });
+		view.processLoadCommitsResponse({ refreshId: 2, commits: [], head: null, tags: [], moreCommitsAvailable: false, onlyFollowFirstParent: false, error: null });
+		expect(document.getElementById('noCommitsMessage').textContent).toBe('There are no commits in this repository.');
+		expect(dialog.showError).toHaveBeenCalledTimes(1);
+	});
+
 	it('Inserts and removes only affected rows while preserving the header, cells and input focus', () => {
 		const { document, view, update, row } = setup();
 		const a = row('a'), b = row('b'), author = a.querySelector('.authorCol');
@@ -334,6 +399,63 @@ describe('Incremental Git Graph rendering', () => {
 		renderDetails();
 		document.getElementById('cdvCopyDiff').click();
 		expect(sent).toHaveBeenLastCalledWith({ command: 'copyCommitDiff', repo: '/repo', fromHash: 'b', toHash: 'a' });
+	});
+
+	it.each([0, 1])('Restores uncommitted files from HEAD without opening their diff, including after refresh (file view: %i)', type => {
+		const { dom, document, view, row, sent, renderDetails, wireFiles } = setup([commit('*', ['a']), commit('a')]);
+		view.getFileViewType = () => type;
+		view.makeCdvFileViewInteractive = wireFiles;
+		openDetails(view, row, '*');
+		const files = [
+			{ type: 'M', oldFilePath: 'dir/[notes].txt', newFilePath: 'dir/[notes].txt', additions: 1, deletions: 1 },
+			{ type: 'D', oldFilePath: 'deleted.txt', newFilePath: 'deleted.txt', additions: 0, deletions: 1 },
+			{ type: 'U', oldFilePath: 'untracked.txt', newFilePath: 'untracked.txt', additions: null, deletions: null },
+			{ type: 'A', oldFilePath: 'added.txt', newFilePath: 'added.txt', additions: 1, deletions: 0 },
+			{ type: 'R', oldFilePath: 'old.txt', newFilePath: 'renamed.txt', additions: 0, deletions: 0 }
+		];
+		view.expandedCommit.fileChanges = files;
+		view.expandedCommit.fileTree = view.createFileTree(files, null);
+		renderDetails();
+		const button = (index: number) => document.querySelector('.fileTreeFileRecord[data-index="' + index + '"] .revertGitFile');
+		expect(document.querySelectorAll('.revertGitFile')).toHaveLength(5);
+		expect(button(0).parentElement.lastElementChild).toBe(button(0));
+		[2, 3, 4].forEach(index => {
+			expect(button(index).disabled).toBe(true);
+			button(index).click();
+		});
+		expect(sent).not.toHaveBeenCalled();
+		button(0).querySelector('path').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+		button(0).click();
+		expect(sent).toHaveBeenCalledTimes(1);
+		expect(sent).toHaveBeenLastCalledWith({ command: 'resetFileToRevision', repo: '/repo', commitHash: 'HEAD', filePath: 'dir/[notes].txt' });
+		expect(button(0).disabled).toBe(true);
+		renderDetails();
+		expect(button(0).disabled).toBe(true);
+		view.finishResetFileToRevision();
+		expect(button(0).disabled).toBe(false);
+		expect(button(2).disabled).toBe(true);
+		button(1).click();
+		expect(sent).toHaveBeenLastCalledWith({ command: 'resetFileToRevision', repo: '/repo', commitHash: 'HEAD', filePath: 'deleted.txt' });
+		view.finishResetFileToRevision();
+		view.expandedCommit.fileChanges = files.slice(1);
+		view.expandedCommit.fileTree = view.createFileTree(files.slice(1), null);
+		renderDetails();
+		expect(document.querySelectorAll('.revertGitFile')).toHaveLength(4);
+		expect(document.getElementById('cdvFiles').textContent).not.toContain('[notes].txt');
+	});
+
+	it.each([{ hash: 'a', compare: null }, { hash: '*', compare: 'a' }])('Omits restore actions from historical commits and comparisons (%j)', ({ hash, compare }) => {
+		const { document, view, row, sent, renderDetails } = setup([commit('*', ['a']), commit('a')]);
+		openDetails(view, row, hash);
+		view.expandedCommit.compareWithHash = compare;
+		view.expandedCommit.compareWithElem = compare !== null ? row(compare) : null;
+		const file = { type: 'M', oldFilePath: 'test.txt', newFilePath: 'test.txt', additions: 1, deletions: 1 };
+		view.expandedCommit.fileChanges = [file];
+		view.expandedCommit.fileTree = view.createFileTree([file], null);
+		renderDetails();
+		expect(document.querySelector('.revertGitFile')).toBeNull();
+		view.revertFileToHead(file);
+		expect(sent).not.toHaveBeenCalled();
 	});
 
 	it('Shows the copy button after details finish loading', () => {

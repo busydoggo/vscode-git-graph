@@ -1,7 +1,7 @@
 {
 	"name": "vs-git-graph",
 	"displayName": "VS Git Graph",
-	"version": "1.31.1",
+	"version": "1.31.3",
 	"publisher": "busydog",
 	"author": {
 		"name": "Michael Hutchison",
@@ -36,6 +36,7 @@
 		"workspace"
 	],
 	"activationEvents": [
+		"onStartupFinished",
 		"onCommand:vs-git-graph.restart",
 		"workspaceContains:.git",
 		"workspaceContains:.repo/manifest.xml"

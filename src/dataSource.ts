@@ -1181,7 +1181,7 @@ export class DataSource extends Disposable {
 	 * @returns The ErrorInfo from the executed command.
 	 */
 	public resetFileToRevision(repo: string, commitHash: string, filePath: string) {
-		return this.runGitCommand(['checkout', commitHash, '--', filePath], repo);
+		return this.runGitCommand(['--literal-pathspecs', 'checkout', commitHash, '--', filePath], repo);
 	}
 
 

@@ -53,6 +53,13 @@ code{
 	position:relative;
 }
 
+#noCommitsMessage{
+	margin:0;
+	padding:48px 24px;
+	color:var(--vscode-descriptionForeground, var(--vscode-foreground));
+	text-align:center;
+}
+
 
 /* Overlays */
 
@@ -606,6 +613,25 @@ svg.openFolderIcon, svg.closedFolderIcon, svg.fileIcon, .fileTreeFileAction svg,
 	height:13px !important;
 	fill:var(--vscode-editor-foreground);
 	fill-opacity:0.6;
+}
+.fileTreeFileAction.revertGitFile{
+	padding:0;
+	border:0;
+	background:none;
+	color:var(--vscode-editor-foreground);
+	opacity:0.8;
+	cursor:pointer;
+}
+.fileTreeFileAction.revertGitFile:disabled{
+	opacity:0.3;
+	cursor:default;
+}
+.fileTreeFileAction.revertGitFile:focus-visible{
+	outline:1px solid var(--vscode-focusBorder);
+	outline-offset:2px;
+}
+.revertGitFile svg{
+	left:0;
 }
 .fileTreeFileAction.copyGitFile svg{
 	top:3px;
