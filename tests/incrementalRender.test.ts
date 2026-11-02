@@ -26,13 +26,13 @@ function setup(commits = [commit('a', ['b']), commit('b')]) {
 		commitDetailsView: { fileTreeCompactFolders: false },
 		graph: { grid: { x: 16, y: 24, offsetX: 16, offsetY: 12, expandY: 100 }, colours: ['red', 'blue'], style: 0, uncommittedChanges: 0 }
 	};
-	const dialog = { showError: jest.fn(), closeActionRunning: jest.fn(), isOpen: () => false, isTargetDynamicSource: () => false };
+	const dialog = { showError: jest.fn(), showConfirmation: jest.fn(), closeActionRunning: jest.fn(), isOpen: () => false, isTargetDynamicSource: () => false };
 	const { View, Graph, FindWidget, Renderer } = vm.runInNewContext(script + '\n({View: GitGraphView, Graph, FindWidget, Renderer: CommitTableRenderer});', {
 		document, window: dom.window, getComputedStyle: dom.window.getComputedStyle, setTimeout: jest.fn(), clearTimeout: jest.fn(),
 		initialState: { config }, acquireVsCodeApi: () => ({ postMessage: sent }),
 		dialog, contextMenu: { isOpen: () => false, isTargetDynamicSource: () => false },
 		GG: { FileViewType: { List: 1 }, GitFileStatus: { Modified: 'M', Deleted: 'D', Added: 'A', Untracked: 'U', Renamed: 'R' }, DateFormatType: { DateAndTime: 0, DateOnly: 1 }, GraphStyle: { Angular: 0 }, GraphUncommittedChangesStyle: { OpenCircleAtTheUncommittedChanges: 0, OpenCircleAtTheCheckedOutCommit: 1 } },
-		CLASS_INTERNAL_URL: 'internalUrl', CLASS_EXTERNAL_URL: 'externalUrl',
+		CLASS_INTERNAL_URL: 'internalUrl', CLASS_EXTERNAL_URL: 'externalUrl', TargetType: { CommitDetailsView: 'cdv' },
 		TextFormatter: class { public format(value: string) { return value; } },
 		ResizeObserver: class { public observe() { } public disconnect() { } }
 	});
@@ -41,7 +41,7 @@ function setup(commits = [commit('a', ['b']), commit('b')]) {
 		authorFilter: '', currentRepo: '/repo', gitRepos: { '/repo': { issueLinkingConfig: null } }, config, avatars: {}, gitBranches: [], gitTags: [], onlyFollowFirstParent: false,
 		currentRepoLoading: false, currentRepoRefreshState: { inProgress: false, hard: false, loadCommitsRefreshId: 0, repoInfoChanges: false },
 		viewElem: document.getElementById('view'), tableElem: document.getElementById('commitTable'), footerElem: document.getElementById('footer'),
-		tableRenderer: new Renderer(), branchLabelLayouts: new WeakMap(), commitDetailsRenderState: null, copyCommitDiffInProgress: false, revertFileInProgress: false, gitConfig: null,
+		tableRenderer: new Renderer(), branchLabelLayouts: new WeakMap(), commitDetailsRenderState: null, copyCommitDiffInProgress: false, viewAllDiffsInProgress: false, fileActionInProgress: false, gitConfig: null,
 		authorFilterInput: document.createElement('input'), authorFilterWidget: document.createElement('div'), authorFilterClear: document.createElement('button'),
 		expandedCommit: null, moreCommitsAvailable: true, graphHeaderResizeObserver: null,
 		branchDropdown: { mount: jest.fn(), refresh: jest.fn() }, makeTableResizable: jest.fn(), updateGraphHeaderLayout: jest.fn(),
@@ -63,7 +63,7 @@ function setup(commits = [commit('a', ['b']), commit('b')]) {
 		view.graph.render(view.expandedCommit);
 	};
 	update();
-	return { dom, document, view, sent, dialog, update, renderDetails: () => View.prototype.renderCommitDetailsView.call(view, true), wireFiles: () => View.prototype.makeCdvFileViewInteractive.call(view), row: (hash: string) => document.querySelector('tr[data-hash="' + hash + '"]') };
+	return { dom, document, view, sent, dialog, update, renderDetails: () => View.prototype.renderCommitDetailsView.call(view, true), showDetails: (details: any, tree: any) => View.prototype.showCommitDetails.call(view, details, tree, null, null, null, true), wireFiles: () => View.prototype.makeCdvFileViewInteractive.call(view), row: (hash: string) => document.querySelector('tr[data-hash="' + hash + '"]') };
 }
 
 function openDetails(view: any, row: (hash: string) => any, hash: string, parents: string[] = ['b']) {
@@ -360,7 +360,9 @@ describe('Incremental Git Graph rendering', () => {
 		expect(document.getElementById('cdvFiles')).toBe(files);
 		expect(document.getElementById('cdvClose')).toBe(close);
 		expect(files.textContent).toContain('test.ts');
-		expect(observer.takeRecords().every((mutation: any) => files.contains(mutation.target))).toBe(true);
+		const viewAll = document.getElementById('cdvViewAllDiffs');
+		expect(viewAll.disabled).toBe(false);
+		expect(observer.takeRecords().every((mutation: any) => files.contains(mutation.target) || (mutation.target === viewAll && mutation.type === 'attributes' && mutation.attributeName === 'disabled'))).toBe(true);
 		expect(view.makeCdvFileViewInteractive).toHaveBeenCalledTimes(2);
 		view.closeCommitDetails = jest.fn();
 		close.click();
@@ -401,6 +403,66 @@ describe('Incremental Git Graph rendering', () => {
 		expect(sent).toHaveBeenLastCalledWith({ command: 'copyCommitDiff', repo: '/repo', fromHash: 'b', toHash: 'a' });
 	});
 
+	it.each([
+		{ hash: 'a', parents: ['b', 'merge-parent'], fromHash: 'b', stash: null },
+		{ hash: 'b', parents: [], fromHash: null, stash: null },
+		{ hash: '*', parents: ['a'], fromHash: 'HEAD', stash: null },
+		{ hash: 'a', parents: ['b'], fromHash: 'stash-base', stash: { selector: 'stash@{0}', baseHash: 'stash-base', untrackedFilesHash: 'stash-untracked' } }
+	])('Opens all displayed changes in a single native editor with the correct base (%j)', ({ hash, parents, fromHash, stash }) => {
+		const { document, view, row, sent, renderDetails } = setup(hash === '*' ? [commit('*', ['a']), commit('a')] : undefined);
+		view.commits[view.commitLookup[hash]].stash = stash;
+		openDetails(view, row, hash, parents);
+		const files = [
+			{ type: 'M', oldFilePath: 'first.ts', newFilePath: 'first.ts', additions: 1, deletions: 1 },
+			{ type: 'A', oldFilePath: 'second.ts', newFilePath: 'second.ts', additions: 1, deletions: 0 }
+		];
+		view.expandedCommit.fileChanges = files;
+		view.expandedCommit.fileTree = view.createFileTree(files, null);
+		renderDetails();
+		const button = document.getElementById('cdvViewAllDiffs');
+		expect(button.querySelector('svg')).not.toBeNull();
+		expect(button.disabled).toBe(false);
+		button.click();
+		view.viewExpandedCommitDiffs();
+		expect(sent).toHaveBeenCalledTimes(1);
+		expect(sent).toHaveBeenLastCalledWith({ command: 'viewAllDiffs', repo: '/repo', fromHash, toHash: hash, files, untrackedFilesHash: stash !== null ? stash.untrackedFilesHash : null });
+		expect(button.disabled).toBe(true);
+		renderDetails();
+		expect(document.getElementById('cdvViewAllDiffs')).toBe(button);
+		expect(button.disabled).toBe(true);
+		view.finishViewAllDiffs();
+		expect(button.disabled).toBe(false);
+		button.click();
+		expect(sent).toHaveBeenCalledTimes(2);
+	});
+
+	it.each(['a', 'b'])('Opens all changes in comparison order (open commit: %s)', hash => {
+		const { document, view, row, sent, renderDetails } = setup();
+		openDetails(view, row, hash);
+		view.expandedCommit.compareWithHash = hash === 'a' ? 'b' : 'a';
+		view.expandedCommit.compareWithElem = row(view.expandedCommit.compareWithHash);
+		const files = [{ type: 'M', oldFilePath: 'file.ts', newFilePath: 'file.ts', additions: 1, deletions: 1 }];
+		view.expandedCommit.fileChanges = files;
+		view.expandedCommit.fileTree = view.createFileTree(files, null);
+		renderDetails();
+		document.getElementById('cdvViewAllDiffs').click();
+		expect(sent).toHaveBeenLastCalledWith({ command: 'viewAllDiffs', repo: '/repo', fromHash: 'b', toHash: 'a', files, untrackedFilesHash: null });
+	});
+
+	it('Does not open all changes while loading or when no changed files exist', () => {
+		const { document, view, row, sent, renderDetails } = setup();
+		openDetails(view, row, 'a');
+		view.expandedCommit.loading = true;
+		renderDetails();
+		expect(document.getElementById('cdvViewAllDiffs')).toBeNull();
+		view.viewExpandedCommitDiffs();
+		view.expandedCommit.loading = false;
+		renderDetails();
+		expect(document.getElementById('cdvViewAllDiffs').disabled).toBe(true);
+		view.viewExpandedCommitDiffs();
+		expect(sent).not.toHaveBeenCalled();
+	});
+
 	it.each([0, 1])('Restores uncommitted files from HEAD without opening their diff, including after refresh (file view: %i)', type => {
 		const { dom, document, view, row, sent, renderDetails, wireFiles } = setup([commit('*', ['a']), commit('a')]);
 		view.getFileViewType = () => type;
@@ -417,9 +479,11 @@ describe('Incremental Git Graph rendering', () => {
 		view.expandedCommit.fileTree = view.createFileTree(files, null);
 		renderDetails();
 		const button = (index: number) => document.querySelector('.fileTreeFileRecord[data-index="' + index + '"] .revertGitFile');
-		expect(document.querySelectorAll('.revertGitFile')).toHaveLength(5);
+		expect(document.querySelectorAll('.revertGitFile')).toHaveLength(4);
+		expect(document.querySelectorAll('.deleteUntrackedGitFile')).toHaveLength(1);
+		expect(button(2)).toBeNull();
 		expect(button(0).parentElement.lastElementChild).toBe(button(0));
-		[2, 3, 4].forEach(index => {
+		[3, 4].forEach(index => {
 			expect(button(index).disabled).toBe(true);
 			button(index).click();
 		});
@@ -431,17 +495,185 @@ describe('Incremental Git Graph rendering', () => {
 		expect(button(0).disabled).toBe(true);
 		renderDetails();
 		expect(button(0).disabled).toBe(true);
-		view.finishResetFileToRevision();
+		view.finishFileAction();
 		expect(button(0).disabled).toBe(false);
-		expect(button(2).disabled).toBe(true);
+		expect(document.querySelector('.deleteUntrackedGitFile').disabled).toBe(false);
 		button(1).click();
 		expect(sent).toHaveBeenLastCalledWith({ command: 'resetFileToRevision', repo: '/repo', commitHash: 'HEAD', filePath: 'deleted.txt' });
-		view.finishResetFileToRevision();
+		view.finishFileAction();
 		view.expandedCommit.fileChanges = files.slice(1);
 		view.expandedCommit.fileTree = view.createFileTree(files.slice(1), null);
 		renderDetails();
-		expect(document.querySelectorAll('.revertGitFile')).toHaveLength(4);
+		expect(document.querySelectorAll('.revertGitFile')).toHaveLength(3);
 		expect(document.getElementById('cdvFiles').textContent).not.toContain('[notes].txt');
+	});
+
+	it.each([0, 1])('Requires confirmation before deleting an untracked file and keeps the delete action right-aligned (file view: %i)', type => {
+		const { dom, document, view, row, sent, dialog, renderDetails, wireFiles } = setup([commit('*', ['a']), commit('a')]);
+		view.getFileViewType = () => type;
+		view.makeCdvFileViewInteractive = wireFiles;
+		openDetails(view, row, '*');
+		const files = [
+			{ type: 'U', oldFilePath: 'dir/<new>&[draft].txt', newFilePath: 'dir/<new>&[draft].txt', additions: null, deletions: null },
+			{ type: 'M', oldFilePath: 'tracked.txt', newFilePath: 'tracked.txt', additions: 1, deletions: 1 }
+		];
+		view.expandedCommit.fileChanges = files;
+		view.expandedCommit.fileTree = view.createFileTree(files, null);
+		renderDetails();
+		const button = () => document.querySelector('.deleteUntrackedGitFile');
+		expect(document.querySelector('.fileTreeFileRecord[data-index="0"] .revertGitFile')).toBeNull();
+		expect(document.querySelector('.fileTreeFileRecord[data-index="1"] .revertGitFile')).not.toBeNull();
+		expect(button().parentElement.lastElementChild).toBe(button());
+		expect(button().parentElement.parentElement.lastElementChild).toBe(button().parentElement);
+		expect(button().title).toBe('Delete Untracked File');
+		expect(button().disabled).toBe(false);
+		view.deleteUntrackedFile(files[1], button().closest('.fileTreeFileRecord'));
+		expect(dialog.showConfirmation).not.toHaveBeenCalled();
+		button().querySelector('path').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+		expect(dialog.showConfirmation).toHaveBeenCalledTimes(1);
+		const [message, label, confirm, target] = dialog.showConfirmation.mock.calls[0];
+		expect(message).toContain('permanently delete');
+		expect(message).toContain('&lt;new&gt;&amp;[draft].txt');
+		const prompt = document.createElement('div');
+		prompt.innerHTML = message;
+		expect(prompt.textContent).toContain(files[0].newFilePath);
+		expect(message).not.toContain('<new>');
+		expect(label).toBe('Yes, delete file');
+		expect(target.elem).toBe(button().closest('.fileTreeFileRecord'));
+		expect(sent).not.toHaveBeenCalled();
+		expect(view.fileActionInProgress).toBe(false);
+		confirm();
+		confirm();
+		expect(sent).toHaveBeenCalledTimes(1);
+		expect(sent).toHaveBeenLastCalledWith({ command: 'deleteUntrackedFile', repo: '/repo', filePath: 'dir/<new>&[draft].txt' });
+		expect(button().disabled).toBe(true);
+		renderDetails();
+		expect(button().disabled).toBe(true);
+		view.finishFileAction();
+		expect(button().disabled).toBe(false);
+		view.expandedCommit.fileChanges = files.slice(1);
+		view.expandedCommit.fileTree = view.createFileTree(files.slice(1), null);
+		renderDetails();
+		expect(button()).toBeNull();
+		expect(document.getElementById('cdvFiles').textContent).toContain('tracked.txt');
+	});
+
+	it.each([0, 1])('Cancels deletion in the real confirmation dialog and deletes only after Yes is clicked (file view: %i)', type => {
+		const { dom, document, view, row, sent, dialog, renderDetails, wireFiles } = setup([commit('*', ['a']), commit('a')]);
+		const dialogScript = ['utils', 'dom', 'dialog'].map(name => ts.transpileModule(fs.readFileSync(path.join(__dirname, '../web/' + name + '.ts'), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2015 } }).outputText).join('\n');
+		let actualDialog: any;
+		const RealDialog = vm.runInNewContext(dialogScript + '\nDialog;', {
+			document, window: dom.window, acquireVsCodeApi: () => ({ postMessage: sent }), TargetType: { Repo: 'repo' }, eventOverlay: { create: jest.fn(), remove: jest.fn() }, closeDialogAndContextMenu: () => actualDialog.close()
+		});
+		actualDialog = new RealDialog();
+		const showConfirmation = jest.spyOn(actualDialog, 'showConfirmation');
+		dialog.showConfirmation = actualDialog.showConfirmation.bind(actualDialog);
+		dialog.isOpen = () => actualDialog.isOpen();
+		view.getFileViewType = () => type;
+		view.makeCdvFileViewInteractive = wireFiles;
+		openDetails(view, row, '*');
+		const files = [{ type: 'U', oldFilePath: 'new.txt', newFilePath: 'new.txt', additions: null, deletions: null }];
+		view.expandedCommit.fileChanges = files;
+		view.expandedCommit.fileTree = view.createFileTree(files, null);
+		renderDetails();
+		const button = document.querySelector('.deleteUntrackedGitFile');
+		expect(button.disabled).toBe(false);
+		expect(actualDialog.isOpen()).toBe(false);
+		button.click();
+		expect(showConfirmation).toHaveBeenCalledTimes(1);
+		if (showConfirmation.mock.results[0].type === 'throw') throw showConfirmation.mock.results[0].value;
+		expect(actualDialog.isOpen()).toBe(true);
+		expect(document.querySelector('.dialogContent').textContent).toContain('new.txt');
+		expect(document.getElementById('dialogSecondaryAction').textContent).toBe('Cancel');
+		expect(sent).not.toHaveBeenCalled();
+		document.getElementById('dialogSecondaryAction').click();
+		expect(document.querySelector('.dialog')).toBeNull();
+		expect(sent).not.toHaveBeenCalled();
+		expect(view.fileActionInProgress).toBe(false);
+		button.click();
+		document.getElementById('dialogAction').click();
+		expect(document.querySelector('.dialog')).toBeNull();
+		expect(sent).toHaveBeenCalledTimes(1);
+		expect(sent).toHaveBeenLastCalledWith({ command: 'deleteUntrackedFile', repo: '/repo', filePath: 'new.txt' });
+	});
+
+	it.each(['staged', 'repo changed', 'comparison', 'historical commit', 'file removed'])('Rejects a stale delete confirmation when %s', change => {
+		const { document, view, row, sent, dialog, renderDetails, wireFiles } = setup([commit('*', ['a']), commit('a')]);
+		view.makeCdvFileViewInteractive = wireFiles;
+		openDetails(view, row, '*');
+		const files = [{ type: 'U', oldFilePath: 'new.txt', newFilePath: 'new.txt', additions: null, deletions: null }];
+		view.expandedCommit.fileChanges = files;
+		view.expandedCommit.fileTree = view.createFileTree(files, null);
+		renderDetails();
+		document.querySelector('.deleteUntrackedGitFile').click();
+		const confirm = dialog.showConfirmation.mock.calls[0][2];
+		if (change === 'staged') view.expandedCommit.fileChanges = [{ ...files[0], type: 'A' }];
+		else if (change === 'repo changed') view.currentRepo = '/other';
+		else if (change === 'comparison') view.expandedCommit.compareWithHash = 'a';
+		else if (change === 'historical commit') view.expandedCommit.commitHash = 'a';
+		else view.expandedCommit.fileChanges = [];
+		confirm();
+		expect(sent).not.toHaveBeenCalled();
+		expect(view.fileActionInProgress).toBe(false);
+	});
+
+	it.each([0, 1])('Aligns uncommitted file actions and updates staging controls without replacing the details shell (file view: %i)', type => {
+		const { dom, document, view, row, sent, renderDetails, showDetails, wireFiles } = setup([commit('*', ['a']), commit('a')]);
+		const style = document.createElement('style');
+		style.textContent = fs.readFileSync(path.join(__dirname, '../web/styles/main.css'), 'utf8');
+		document.head.appendChild(style);
+		view.getFileViewType = () => type;
+		view.makeCdvFileViewInteractive = wireFiles;
+		view.renderCommitDetailsView = renderDetails;
+		openDetails(view, row, '*');
+		const files = [
+			{ type: 'M', oldFilePath: 'dir/file.txt', newFilePath: 'dir/file.txt', additions: 1, deletions: 1, staging: { stagePaths: ['dir/file.txt'], unstagePaths: [] } },
+			{ type: 'M', oldFilePath: 'partial.txt', newFilePath: 'partial.txt', additions: 1, deletions: 1, staging: { stagePaths: ['partial.txt'], unstagePaths: ['partial.txt'] } },
+			{ type: 'A', oldFilePath: 'staged.txt', newFilePath: 'staged.txt', additions: 1, deletions: 0, staging: { stagePaths: [], unstagePaths: ['staged.txt'] } }
+		];
+		view.expandedCommit.fileChanges = files;
+		view.expandedCommit.fileTree = view.createFileTree(files, null);
+		renderDetails();
+		const button = (index: number, action: string) => document.querySelector('.fileTreeFileRecord[data-index="' + index + '"] .' + action);
+		expect(document.querySelectorAll('.stageGitFile')).toHaveLength(3);
+		expect(document.querySelectorAll('.unstageGitFile')).toHaveLength(3);
+		document.querySelectorAll('.fileTreeUncommittedActions').forEach((actions: any) => {
+			expect(actions.parentElement.lastElementChild).toBe(actions);
+			expect(actions.lastElementChild.classList.contains('revertGitFile')).toBe(true);
+			expect(dom.window.getComputedStyle(actions.parentElement).display).toBe('flex');
+			expect(dom.window.getComputedStyle(actions).marginLeft).toBe('auto');
+		});
+		expect(button(0, 'stageGitFile').disabled).toBe(false);
+		expect(button(0, 'unstageGitFile').disabled).toBe(true);
+		expect(button(1, 'stageGitFile').disabled).toBe(false);
+		expect(button(1, 'unstageGitFile').disabled).toBe(false);
+		expect(button(2, 'stageGitFile').disabled).toBe(true);
+		expect(button(2, 'unstageGitFile').disabled).toBe(false);
+		button(0, 'stageGitFile').querySelector('path').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+		expect(sent).toHaveBeenCalledTimes(1);
+		expect(sent).toHaveBeenLastCalledWith({ command: 'stageFiles', repo: '/repo', filePaths: ['dir/file.txt'] });
+		document.querySelectorAll('.uncommittedFileAction').forEach((action: any) => expect(action.disabled).toBe(true));
+		button(1, 'unstageGitFile').click();
+		button(0, 'revertGitFile').click();
+		expect(sent).toHaveBeenCalledTimes(1);
+		renderDetails();
+		expect(button(0, 'stageGitFile').disabled).toBe(true);
+		view.finishFileAction();
+		const details = document.getElementById('cdv'), container = document.getElementById('cdvFiles');
+		const nextFiles = files.map((file, index) => index === 0 ? { ...file, staging: { stagePaths: [], unstagePaths: ['dir/file.txt'] } } : file);
+		showDetails({ ...view.expandedCommit.commitDetails, fileChanges: nextFiles }, view.createFileTree(nextFiles, null));
+		expect(view.expandedCommit.fileChanges).toBe(nextFiles);
+		expect(document.getElementById('cdv')).toBe(details);
+		expect(document.getElementById('cdvFiles')).toBe(container);
+		expect(button(0, 'stageGitFile').disabled).toBe(true);
+		expect(button(0, 'unstageGitFile').disabled).toBe(false);
+		button(0, 'unstageGitFile').querySelector('path').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+		expect(sent).toHaveBeenCalledTimes(2);
+		expect(sent).toHaveBeenLastCalledWith({ command: 'unstageFiles', repo: '/repo', filePaths: ['dir/file.txt'] });
+		view.finishFileAction();
+		expect(button(1, 'stageGitFile').disabled).toBe(false);
+		view.cdvUpdateFileState(nextFiles[0], button(0, 'unstageGitFile').closest('.fileTreeFileRecord'), null, true);
+		expect(document.querySelector('.fileTreeFileRecord[data-index="0"]').lastElementChild.classList.contains('fileTreeUncommittedActions')).toBe(true);
 	});
 
 	it.each([{ hash: 'a', compare: null }, { hash: '*', compare: 'a' }])('Omits restore actions from historical commits and comparisons (%j)', ({ hash, compare }) => {
@@ -453,7 +685,9 @@ describe('Incremental Git Graph rendering', () => {
 		view.expandedCommit.fileChanges = [file];
 		view.expandedCommit.fileTree = view.createFileTree([file], null);
 		renderDetails();
-		expect(document.querySelector('.revertGitFile')).toBeNull();
+		expect(document.querySelector('.uncommittedFileAction')).toBeNull();
+		view.changeFileStaging({ ...file, staging: { stagePaths: ['file.txt'], unstagePaths: ['file.txt'] } }, true);
+		view.changeFileStaging({ ...file, staging: { stagePaths: ['file.txt'], unstagePaths: ['file.txt'] } }, false);
 		view.revertFileToHead(file);
 		expect(sent).not.toHaveBeenCalled();
 	});

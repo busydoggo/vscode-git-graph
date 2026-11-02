@@ -17,6 +17,7 @@ import { DiffSide, encodeDiffDocUri } from '../src/diffDocProvider';
 import { ExtensionState } from '../src/extensionState';
 import { GitGraphView } from '../src/gitGraphView';
 import { Logger } from '../src/logger';
+import * as multiDiff from '../src/multiDiff';
 import { RepoManager } from '../src/repoManager';
 import { GitFileStatus, RepoDropdownOrder } from '../src/types';
 import * as utils from '../src/utils';
@@ -73,7 +74,7 @@ describe('CommandManager', () => {
 
 	it('Should construct a CommandManager, and be disposed', () => {
 		// Assert
-		expect(commandManager['disposables']).toHaveLength(15);
+		expect(commandManager['disposables']).toHaveLength(21);
 		expect(commandManager['gitExecutable']).toStrictEqual({
 			path: '/path/to/git',
 			version: '2.25.0'
@@ -84,6 +85,43 @@ describe('CommandManager', () => {
 
 		// Assert
 		expect(commandManager['disposables']).toHaveLength(0);
+	});
+
+	it('Expands all native diff sections even when only some files are collapsed', async () => {
+		const expand = jest.fn((..._args: any[]) => Promise.resolve());
+		const registration = vscode.commands.registerCommand('multiDiffEditor.expandAll', expand);
+		try {
+			const context = { groupId: 2, editorIndex: 1 };
+			await vscode.commands.executeCommand('vs-git-graph.expandAllDiffs', undefined, context);
+			expect(expand).toHaveBeenCalledTimes(1);
+			expect(expand).toHaveBeenCalledWith(undefined, context);
+			expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: vs-git-graph.expandAllDiffs');
+		} finally {
+			registration.dispose();
+		}
+	});
+
+	it('Routes a per-file clipboard button to the clicked file', async () => {
+		const copy = jest.spyOn(multiDiff, 'copyDiffFilePath').mockResolvedValueOnce(null);
+		const uri = encodeDiffDocUri('/repo', 'clicked.ts', 'revision', GitFileStatus.Modified, DiffSide.New);
+		try {
+			await vscode.commands.executeCommand('vs-git-graph.copyDiffFilePath', uri);
+			expect(copy).toHaveBeenCalledWith(uri);
+		} finally { copy.mockRestore(); }
+	});
+
+	it.each([null, 'Unable to read repository'])('Routes the native editor refresh to its comparison and reports errors (%s)', async error => {
+		const refresh = jest.spyOn(multiDiff, 'refreshAllDiffs').mockResolvedValueOnce(error);
+		if (error !== null) vscode.window.showErrorMessage.mockResolvedValueOnce(undefined);
+		const uri = vscode.Uri.parse('vs-git-graph-multi-diff:/source');
+		try {
+			await vscode.commands.executeCommand('vs-git-graph.refreshAllDiffs', uri);
+			expect(refresh).toHaveBeenCalledWith(dataSource, uri);
+			if (error !== null) expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(error);
+			else expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+		} finally {
+			refresh.mockRestore();
+		}
 	});
 
 	it('Should process onDidChangeGitExecutable events', () => {
@@ -1334,7 +1372,7 @@ describe('CommandManager', () => {
 
 			// Assert
 			expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: vs-git-graph.openFile');
-			expect(spyOnOpenFile).toHaveBeenCalledWith('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', dataSource, vscode.ViewColumn.Active);
+			expect(spyOnOpenFile).toHaveBeenCalledWith('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', dataSource, vscode.ViewColumn.Active, undefined);
 		});
 
 		it('Should open the file of the active text editor', async () => {
@@ -1346,7 +1384,24 @@ describe('CommandManager', () => {
 
 			// Assert
 			expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: vs-git-graph.openFile');
-			expect(spyOnOpenFile).toHaveBeenCalledWith('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', dataSource, vscode.ViewColumn.Active);
+			expect(spyOnOpenFile).toHaveBeenCalledWith('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', dataSource, vscode.ViewColumn.Active, undefined);
+		});
+
+		it('Carries the current cursor selection into the editable working file', async () => {
+			const uri = encodeDiffDocUri('/repo', 'file.ts', 'revision', GitFileStatus.Modified, DiffSide.New);
+			const selection = { start: { line: 12, character: 6 }, end: { line: 12, character: 6 } };
+			vscode.window.activeTextEditor = { document: { uri }, selection };
+			spyOnOpenFile.mockResolvedValueOnce(null);
+			await vscode.commands.executeCommand('vs-git-graph.openFile', uri);
+			expect(spyOnOpenFile).toHaveBeenCalledWith('/repo', 'file.ts', 'revision', dataSource, vscode.ViewColumn.Active, selection);
+		});
+
+		it('Does not copy a selection from a different file', async () => {
+			const uri = encodeDiffDocUri('/repo', 'target.ts', 'revision', GitFileStatus.Modified, DiffSide.New);
+			vscode.window.activeTextEditor = { document: { uri: vscode.Uri.file('/unrelated.ts') }, selection: { start: { line: 99, character: 1 } } };
+			spyOnOpenFile.mockResolvedValueOnce(null);
+			await vscode.commands.executeCommand('vs-git-graph.openFile', uri);
+			expect(spyOnOpenFile).toHaveBeenCalledWith('/repo', 'target.ts', 'revision', dataSource, vscode.ViewColumn.Active, undefined);
 		});
 
 		it('Should display an error message when no URI is provided', async () => {
@@ -1385,7 +1440,7 @@ describe('CommandManager', () => {
 
 			// Assert
 			expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: vs-git-graph.openFile');
-			expect(spyOnOpenFile).toHaveBeenCalledWith('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', dataSource, vscode.ViewColumn.Active);
+			expect(spyOnOpenFile).toHaveBeenCalledWith('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', dataSource, vscode.ViewColumn.Active, undefined);
 			expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('Unable to Open File: Error Message');
 		});
 	});

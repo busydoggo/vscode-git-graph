@@ -1,4 +1,9 @@
 {
+	"command.copyDiffFilePath.title": "复制完整文件路径",
+	"command.refreshAllDiffs.title": "刷新全部改动",
+	"command.showAllUnchangedRegions.title": "展开此文件的全部未改动区间",
+	"command.collapseAllUnchangedRegions.title": "收起此文件的全部未改动区间",
+	"command.expandAllDiffs.title": "展开全部改动",
 	"config.title": "VS Git Graph 设置",
 	"config.commitDetailsView.autoCenter.description": "打开提交详情视图时，自动将其居中显示。",
 	"config.commitDetailsView.fileView.fileTree.compactFolders.description": "在提交详情视图中使用紧凑的文件树：将只有一个子文件夹的连续文件夹合并为一项。",

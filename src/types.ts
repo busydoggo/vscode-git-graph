@@ -71,6 +71,10 @@ export interface GitFileChange {
 	readonly type: GitFileStatus;
 	readonly additions: number | null;
 	readonly deletions: number | null;
+	readonly staging?: {
+		readonly stagePaths: ReadonlyArray<string>;
+		readonly unstagePaths: ReadonlyArray<string>;
+	};
 }
 
 export const enum GitFileStatus {
@@ -772,6 +776,14 @@ export interface ResponseCreatePullRequest extends ResponseWithMultiErrorInfo {
 	readonly push: boolean;
 }
 
+export interface RequestDeleteUntrackedFile extends RepoRequest {
+	readonly command: 'deleteUntrackedFile';
+	readonly filePath: string;
+}
+export interface ResponseDeleteUntrackedFile extends ResponseWithErrorInfo {
+	readonly command: 'deleteUntrackedFile';
+}
+
 export interface RequestDeleteBranch extends RepoRequest {
 	readonly command: 'deleteBranch';
 	readonly branchName: string;
@@ -1161,6 +1173,22 @@ export interface ResponseResetFileToRevision extends ResponseWithErrorInfo {
 	readonly command: 'resetFileToRevision';
 }
 
+export interface RequestStageFiles extends RepoRequest {
+	readonly command: 'stageFiles';
+	readonly filePaths: ReadonlyArray<string>;
+}
+export interface ResponseStageFiles extends ResponseWithErrorInfo {
+	readonly command: 'stageFiles';
+}
+
+export interface RequestUnstageFiles extends RepoRequest {
+	readonly command: 'unstageFiles';
+	readonly filePaths: ReadonlyArray<string>;
+}
+export interface ResponseUnstageFiles extends ResponseWithErrorInfo {
+	readonly command: 'unstageFiles';
+}
+
 export interface RequestResetToCommit extends RepoRequest {
 	readonly command: 'resetToCommit';
 	readonly commit: string;
@@ -1243,6 +1271,17 @@ export interface ResponseUpdateCodeReview extends ResponseWithErrorInfo {
 	readonly command: 'updateCodeReview';
 }
 
+export interface RequestViewAllDiffs extends RepoRequest {
+	readonly command: 'viewAllDiffs';
+	readonly fromHash: string | null;
+	readonly toHash: string;
+	readonly files: ReadonlyArray<GitFileChange>;
+	readonly untrackedFilesHash: string | null;
+}
+export interface ResponseViewAllDiffs extends ResponseWithErrorInfo {
+	readonly command: 'viewAllDiffs';
+}
+
 export interface RequestViewDiff extends RepoRequest {
 	readonly command: 'viewDiff';
 	readonly fromHash: string;
@@ -1304,6 +1343,7 @@ export type RequestMessage =
 	| RequestDeleteRemoteBranch
 	| RequestDeleteTag
 	| RequestDeleteUserDetails
+	| RequestDeleteUntrackedFile
 	| RequestDropCommit
 	| RequestDropStash
 	| RequestEditRemote
@@ -1339,9 +1379,12 @@ export type RequestMessage =
 	| RequestSetRepoState
 	| RequestSetWorkspaceViewState
 	| RequestShowErrorDialog
+	| RequestStageFiles
 	| RequestStartCodeReview
+	| RequestUnstageFiles
 	| RequestTagDetails
 	| RequestUpdateCodeReview
+	| RequestViewAllDiffs
 	| RequestViewDiff
 	| RequestViewDiffWithWorkingFile
 	| RequestViewFileAtRevision
@@ -1371,6 +1414,7 @@ export type ResponseMessage =
 	| ResponseDeleteRemoteBranch
 	| ResponseDeleteTag
 	| ResponseDeleteUserDetails
+	| ResponseDeleteUntrackedFile
 	| ResponseDropCommit
 	| ResponseDropStash
 	| ResponseEditRemote
@@ -1403,9 +1447,12 @@ export type ResponseMessage =
 	| ResponseRevertCommit
 	| ResponseSetGlobalViewState
 	| ResponseSetWorkspaceViewState
+	| ResponseStageFiles
 	| ResponseStartCodeReview
+	| ResponseUnstageFiles
 	| ResponseTagDetails
 	| ResponseUpdateCodeReview
+	| ResponseViewAllDiffs
 	| ResponseViewDiff
 	| ResponseViewDiffWithWorkingFile
 	| ResponseViewFileAtRevision

@@ -1,4 +1,9 @@
 {
+	"command.copyDiffFilePath.title": "Copy Full File Path",
+	"command.refreshAllDiffs.title": "Refresh All Changes",
+	"command.showAllUnchangedRegions.title": "Show All Unchanged Regions in This File",
+	"command.collapseAllUnchangedRegions.title": "Collapse All Unchanged Regions in This File",
+	"command.expandAllDiffs.title": "Expand All Diffs",
 	"config.title": "Git Graph",
 	"config.commitDetailsView.autoCenter.description": "Automatically center the Commit Details View when it is opened.",
 	"config.commitDetailsView.fileView.fileTree.compactFolders.description": "Render the File Tree in the Commit Details View in a compacted form, such that folders with a single child folder are compressed into a single combined folder element.",

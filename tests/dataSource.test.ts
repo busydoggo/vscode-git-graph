@@ -3407,6 +3407,7 @@ describe('DataSource', () => {
 							deletions: 0,
 							newFilePath: 'dir/deleted.txt',
 							oldFilePath: 'dir/deleted.txt',
+							staging: { stagePaths: ['dir/deleted.txt'], unstagePaths: [] },
 							type: 'D'
 						},
 						{
@@ -3414,6 +3415,7 @@ describe('DataSource', () => {
 							deletions: 1,
 							newFilePath: 'dir/modified.txt',
 							oldFilePath: 'dir/modified.txt',
+							staging: { stagePaths: [], unstagePaths: ['dir/modified.txt'] },
 							type: 'M'
 						},
 						{
@@ -3421,6 +3423,7 @@ describe('DataSource', () => {
 							deletions: 3,
 							newFilePath: 'dir/renamed-new.txt',
 							oldFilePath: 'dir/renamed-old.txt',
+							staging: { stagePaths: [], unstagePaths: ['dir/renamed-old.txt', 'dir/renamed-new.txt'] },
 							type: 'R'
 						},
 						{
@@ -3428,6 +3431,7 @@ describe('DataSource', () => {
 							deletions: null,
 							newFilePath: 'untracked.txt',
 							oldFilePath: 'untracked.txt',
+							staging: { stagePaths: ['untracked.txt'], unstagePaths: [] },
 							type: 'U'
 						}
 					]
@@ -3469,6 +3473,7 @@ describe('DataSource', () => {
 							deletions: 0,
 							newFilePath: 'dir/deleted.txt',
 							oldFilePath: 'dir/deleted.txt',
+							staging: { stagePaths: ['dir/deleted.txt'], unstagePaths: [] },
 							type: 'D'
 						},
 						{
@@ -3476,6 +3481,7 @@ describe('DataSource', () => {
 							deletions: 1,
 							newFilePath: 'dir/modified.txt',
 							oldFilePath: 'dir/modified.txt',
+							staging: { stagePaths: [], unstagePaths: ['dir/modified.txt'] },
 							type: 'M'
 						},
 						{
@@ -3483,6 +3489,7 @@ describe('DataSource', () => {
 							deletions: 3,
 							newFilePath: 'dir/renamed-new.txt',
 							oldFilePath: 'dir/renamed-old.txt',
+							staging: { stagePaths: [], unstagePaths: ['dir/renamed-old.txt', 'dir/renamed-new.txt'] },
 							type: 'R'
 						}
 					]
@@ -3531,6 +3538,7 @@ describe('DataSource', () => {
 							deletions: null,
 							newFilePath: 'dir/deleted.txt',
 							oldFilePath: 'dir/deleted.txt',
+							staging: { stagePaths: ['dir/deleted.txt'], unstagePaths: [] },
 							type: 'D'
 						}
 					]

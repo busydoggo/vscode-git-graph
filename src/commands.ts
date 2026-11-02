@@ -7,6 +7,7 @@ import { DiffDocProvider, decodeDiffDocUri } from './diffDocProvider';
 import { CodeReviewData, CodeReviews, ExtensionState } from './extensionState';
 import { GitGraphView } from './gitGraphView';
 import { Logger } from './logger';
+import { copyDiffFilePath, refreshAllDiffs, registerMultiDiffFileNavigation, setAllUnchangedRegionsShown } from './multiDiff';
 import { RepoManager } from './repoManager';
 import { GitExecutable, UNABLE_TO_FIND_GIT_MSG, VsCodeVersionRequirement, abbrevCommit, abbrevText, copyToClipboard, doesVersionMeetRequirement, getExtensionVersion, getPathFromUri, getRelativeTimeDiff, getRepoName, getSortedRepositoryPaths, isPathInWorkspace, openFile, resolveToSymbolicPath, showErrorMessage, showInformationMessage } from './utils';
 import { Disposable } from './utils/disposable';
@@ -51,6 +52,13 @@ export class CommandManager extends Disposable {
 		this.registerCommand('vs-git-graph.repositorySettings', () => GitGraphView.currentPanel?.runToolbarAction('settings'));
 		this.registerCommand('vs-git-graph.fetchInView', () => GitGraphView.currentPanel?.runToolbarAction('fetch'));
 		this.registerCommand('vs-git-graph.refresh', () => GitGraphView.currentPanel?.runToolbarAction('refresh'));
+		this.registerCommand('vs-git-graph.copyDiffFilePath', (uri) => this.copyDiffFilePath(uri));
+		this.registerDisposable(registerMultiDiffFileNavigation(this.dataSource));
+		this.registerCommand('vs-git-graph.refreshAllDiffs', (uri) => this.refreshAllDiffs(uri));
+		// Keep Expand All available when only some files are collapsed, forwarding the editor group context.
+		this.registerCommand('vs-git-graph.expandAllDiffs', (...args) => vscode.commands.executeCommand('multiDiffEditor.expandAll', ...args));
+		this.registerCommand('vs-git-graph.showAllUnchangedRegions', (uri) => this.setAllUnchangedRegionsShown(uri, true));
+		this.registerCommand('vs-git-graph.collapseAllUnchangedRegions', (uri) => this.setAllUnchangedRegionsShown(uri, false));
 
 		this.registerCommand('vs-git-graph.addGitRepository', () => this.addGitRepository());
 		this.registerCommand('vs-git-graph.removeGitRepository', () => this.removeGitRepository());
@@ -104,6 +112,21 @@ export class CommandManager extends Disposable {
 
 
 	/* Commands */
+
+	private async copyDiffFilePath(uri?: vscode.Uri) {
+		const error = await copyDiffFilePath(uri);
+		if (error !== null) showErrorMessage(error);
+	}
+
+	private async refreshAllDiffs(uri?: vscode.Uri) {
+		const error = await refreshAllDiffs(this.dataSource, uri);
+		if (error !== null) showErrorMessage(error);
+	}
+
+	private async setAllUnchangedRegionsShown(uri: vscode.Uri, shown: boolean) {
+		const error = await setAllUnchangedRegionsShown(uri, shown);
+		if (error !== null) showErrorMessage(error);
+	}
 
 	/**
 	 * The method run when the `vs-git-graph.view` command is invoked.
@@ -345,7 +368,9 @@ export class CommandManager extends Disposable {
 		if (typeof uri === 'object' && uri && uri.scheme === DiffDocProvider.scheme) {
 			// A Git Graph URI has been provided
 			const request = decodeDiffDocUri(uri);
-			return openFile(request.repo, request.filePath, request.commit, this.dataSource, vscode.ViewColumn.Active).then((errorInfo) => {
+			const editor = vscode.window.activeTextEditor;
+			const selection = editor?.document.uri.toString() === uri.toString() ? editor.selection : undefined;
+			return openFile(request.repo, request.filePath, request.commit, this.dataSource, vscode.ViewColumn.Active, selection).then((errorInfo) => {
 				if (errorInfo !== null) {
 					return showErrorMessage('Unable to Open File: ' + errorInfo);
 				}

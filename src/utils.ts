@@ -374,9 +374,10 @@ export function openExternalUrl(url: string, type: string = 'External URL'): The
  * @param hash An optional commit hash where the file is known to have existed.
  * @param dataSource An optional DataSource instance, that's used to check if the file has been renamed.
  * @param viewColumn An optional ViewColumn that the file should be opened in.
+ * @param selection An optional selection to reveal in the working file.
  * @returns A promise resolving to the ErrorInfo of the executed command.
  */
-export async function openFile(repo: string, filePath: string, hash: string | null = null, dataSource: DataSource | null = null, viewColumn: vscode.ViewColumn | null = null) {
+export async function openFile(repo: string, filePath: string, hash: string | null = null, dataSource: DataSource | null = null, viewColumn: vscode.ViewColumn | null = null, selection?: vscode.Range) {
 	let newFilePath = filePath;
 	let newAbsoluteFilePath = path.join(repo, newFilePath);
 	let fileExists = await doesFileExist(newAbsoluteFilePath);
@@ -395,7 +396,8 @@ export async function openFile(repo: string, filePath: string, hash: string | nu
 	if (fileExists) {
 		return vscode.commands.executeCommand('vscode.open', vscode.Uri.file(newAbsoluteFilePath), {
 			preview: true,
-			viewColumn: viewColumn === null ? getConfig().openNewTabEditorGroup : viewColumn
+			viewColumn: viewColumn === null ? getConfig().openNewTabEditorGroup : viewColumn,
+			...(selection ? { selection } : {})
 		}).then(
 			() => null,
 			() => 'Visual Studio Code was unable to open ' + newFilePath + '.'

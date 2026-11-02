@@ -413,7 +413,7 @@ export class DataSource extends Disposable {
 					hash: UNCOMMITTED, parents: [],
 					author: '', authorEmail: '', authorDate: 0,
 					committer: '', committerEmail: '', committerDate: 0, signature: null,
-					body: '', fileChanges: generateFileChanges(results[0], results[1], results[2])
+					body: '', fileChanges: generateFileChanges(results[0], results[1], results[2], true)
 				},
 				error: null
 			};
@@ -1173,6 +1173,38 @@ export class DataSource extends Disposable {
 
 	/* Git Action Methods - File */
 
+	/** Delete one untracked file without cleaning any other paths or directories. */
+	public async deleteUntrackedFile(repo: string, filePath: string): Promise<ErrorInfo> {
+		if (filePath === '' || filePath.includes('\0') || path.isAbsolute(filePath)) return 'Select an individual untracked file inside the repository.';
+		const root = path.resolve(repo), absolutePath = path.resolve(root, filePath), relativePath = path.relative(root, absolutePath);
+		if (relativePath === '' || relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)) return 'Select an individual untracked file inside the repository.';
+		try {
+			const stat = await new Promise<fs.Stats>((resolve, reject) => fs.lstat(absolutePath, (error, stat) => error ? reject(error) : resolve(stat)));
+			if (!stat.isFile() && !stat.isSymbolicLink()) return 'Only individual untracked files can be deleted with this action.';
+			const gitPath = relativePath.split(path.sep).join('/');
+			const untracked = await this.spawnGit(['--literal-pathspecs', 'ls-files', '--others', '--exclude-standard', '-z', '--', gitPath], repo, stdout => stdout.split('\0').includes(gitPath));
+			if (!untracked) return 'The file is no longer untracked, or it is ignored by Git. Refresh the file list and try again.';
+			// Git rechecks the index here, so a file staged during confirmation is preserved.
+			return this.runGitCommand(['--literal-pathspecs', 'clean', '-f', '--', gitPath], repo);
+		} catch (reason) {
+			return String(reason);
+		}
+	}
+
+	/** Stage the selected paths, including additions and deletions. */
+	public stageFiles(repo: string, filePaths: ReadonlyArray<string>) {
+		return filePaths.length > 0
+			? this.runGitCommand(['--literal-pathspecs', 'add', '--all', '--', ...new Set(filePaths)], repo)
+			: Promise.resolve('No files were selected to stage.');
+	}
+
+	/** Reset only the selected index entries, leaving working files intact. */
+	public unstageFiles(repo: string, filePaths: ReadonlyArray<string>) {
+		return filePaths.length > 0
+			? this.runGitCommand(['--literal-pathspecs', 'reset', '-q', '--', ...new Set(filePaths)], repo)
+			: Promise.resolve('No files were selected to unstage.');
+	}
+
 	/**
 	 * Reset a file to the specified revision.
 	 * @param repo The path of the repository.
@@ -1714,14 +1746,14 @@ export class DataSource extends Disposable {
 	}
 
 	/**
-	 * Get the untracked and deleted files that are not staged or committed.
+	 * Get index and working tree status, including untracked and deleted files.
 	 * @param repo The path of the repository.
 	 * @returns The untracked and deleted files.
 	 */
 	private getStatus(repo: string) {
 		return this.spawnGit(['status', '-s', '--untracked-files=' + (getConfig().showUntrackedFiles ? 'all' : 'no'), '--porcelain', '-z'], repo, (stdout) => {
 			let output = stdout.split('\0'), i = 0;
-			let status: GitStatusFiles = { deleted: [], untracked: [] };
+			let status: GitStatusFiles = { deleted: [], untracked: [], files: [] };
 			let path = '', c1 = '', c2 = '';
 			while (i < output.length && output[i] !== '') {
 				if (output[i].length < 4) break;
@@ -1731,7 +1763,14 @@ export class DataSource extends Disposable {
 				if (c1 === 'D' || c2 === 'D') status.deleted.push(path);
 				else if (c1 === '?' || c2 === '?') status.untracked.push(path);
 
-				if (c1 === 'R' || c2 === 'R' || c1 === 'C' || c2 === 'C') {
+				const renamed = c1 === 'R' || c2 === 'R' || c1 === 'C' || c2 === 'C';
+				status.files.push({
+					newFilePath: getPathFromStr(path),
+					oldFilePath: getPathFromStr(renamed && typeof output[i + 1] === 'string' ? output[i + 1] : path),
+					index: c1, workingTree: c2
+				});
+
+				if (renamed) {
 					// Renames or copies
 					i += 2;
 				} else {
@@ -1855,8 +1894,8 @@ export class DataSource extends Disposable {
  * @param status The deleted and untracked files.
  * @returns An array of file changes.
  */
-function generateFileChanges(nameStatusRecords: DiffNameStatusRecord[], numStatRecords: DiffNumStatRecord[], status: GitStatusFiles | null) {
-	let fileChanges: Writeable<GitFileChange>[] = [], fileLookup: { [file: string]: number } = {}, i = 0;
+function generateFileChanges(nameStatusRecords: DiffNameStatusRecord[], numStatRecords: DiffNumStatRecord[], status: GitStatusFiles | null, includeStaging: boolean = false) {
+	let fileChanges: DeepWriteable<GitFileChange>[] = [], fileLookup: { [file: string]: number } = {}, i = 0;
 
 	for (i = 0; i < nameStatusRecords.length; i++) {
 		fileLookup[nameStatusRecords[i].newFilePath] = fileChanges.length;
@@ -1884,6 +1923,39 @@ function generateFileChanges(nameStatusRecords: DiffNameStatusRecord[], numStatR
 			fileChanges[fileLookup[numStatRecords[i].filePath]].additions = numStatRecords[i].additions;
 			fileChanges[fileLookup[numStatRecords[i].filePath]].deletions = numStatRecords[i].deletions;
 		}
+	}
+
+	if (includeStaging && status !== null) {
+		const byPath = new Map(status.files.map(file => [file.newFilePath, file]));
+		const renamesByOldPath = new Map(status.files.filter(file => file.index === 'R' || file.workingTree === 'R').map(file => [file.oldFilePath, file]));
+		const used = new Set<GitStatusFile>();
+		const withStaging: DeepWriteable<GitFileChange>[] = [];
+		const append = (file: DeepWriteable<GitFileChange> | null, state: GitStatusFile) => {
+			if (used.has(state)) return;
+			used.add(state);
+			const untracked = state.index === '?';
+			const type = untracked ? GitFileStatus.Untracked
+				: state.index === 'D' || state.workingTree === 'D' ? GitFileStatus.Deleted
+					: file !== null ? file.type
+						: state.index === 'R' || state.workingTree === 'R' ? GitFileStatus.Renamed
+							: state.index === 'A' ? GitFileStatus.Added : GitFileStatus.Modified;
+			withStaging.push({
+				oldFilePath: file !== null ? file.oldFilePath : state.oldFilePath, newFilePath: state.newFilePath, type,
+				additions: file !== null ? file.additions : untracked ? null : 0,
+				deletions: file !== null ? file.deletions : untracked ? null : 0,
+				staging: {
+					stagePaths: state.workingTree !== ' ' ? Array.from(new Set(state.workingTree === 'R' ? [state.oldFilePath, state.newFilePath] : [state.newFilePath])) : [],
+					unstagePaths: state.index !== ' ' && !untracked ? Array.from(new Set(state.index === 'R' ? [state.oldFilePath, state.newFilePath] : [state.newFilePath])) : []
+				}
+			});
+		};
+		fileChanges.forEach(file => {
+			const state = byPath.get(file.newFilePath) || renamesByOldPath.get(file.newFilePath);
+			if (typeof state !== 'undefined') append(file, state);
+			else withStaging.push(file);
+		});
+		status.files.forEach(state => append(null, state));
+		return withStaging;
 	}
 
 	return fileChanges;
@@ -2018,9 +2090,17 @@ interface GitRepoConfigData {
 	error: ErrorInfo;
 }
 
+interface GitStatusFile {
+	oldFilePath: string;
+	newFilePath: string;
+	index: string;
+	workingTree: string;
+}
+
 interface GitStatusFiles {
 	deleted: string[];
 	untracked: string[];
+	files: GitStatusFile[];
 }
 
 interface GitTagDetailsData {

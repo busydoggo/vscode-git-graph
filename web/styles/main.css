@@ -370,7 +370,7 @@ code{
 	background-color:rgba(128,128,128,0.35);
 }
 
-#cdvCopyDiff{
+#cdvCopyDiff, #cdvViewAllDiffs{
 	display:block;
 	padding:0;
 	border:0;
@@ -378,6 +378,10 @@ code{
 }
 #cdvCopyDiff:disabled{
 	cursor:wait;
+	opacity:0.5;
+}
+#cdvViewAllDiffs:disabled{
+	cursor:default;
 	opacity:0.5;
 }
 
@@ -614,7 +618,42 @@ svg.openFolderIcon, svg.closedFolderIcon, svg.fileIcon, .fileTreeFileAction svg,
 	fill:var(--vscode-editor-foreground);
 	fill-opacity:0.6;
 }
-.fileTreeFileAction.revertGitFile{
+.uncommittedFileRecord{
+	display:flex;
+	align-items:center;
+	min-width:0;
+}
+.uncommittedFileRecord:hover{
+	background:var(--vscode-list-hoverBackground, var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.12)));
+}
+.uncommittedFileRecord .fileTreeFile{
+	display:inline-flex;
+	align-items:center;
+	min-width:0;
+}
+.uncommittedFileRecord .gitFileName{
+	min-width:0;
+	overflow:hidden;
+	text-overflow:ellipsis;
+}
+.uncommittedFileRecord > :not(.fileTreeFile){
+	flex-shrink:0;
+}
+.uncommittedFileRecord .fileTreeFileIcon{
+	flex-shrink:0;
+}
+.fileTreeUncommittedActions{
+	display:inline-flex;
+	align-items:center;
+	gap:6px;
+	margin-left:auto;
+	padding-left:8px;
+}
+.fileTreeUncommittedActions .fileTreeFileAction{
+	flex-shrink:0;
+	margin-left:0;
+}
+.fileTreeFileAction.uncommittedFileAction{
 	padding:0;
 	border:0;
 	background:none;
@@ -622,16 +661,17 @@ svg.openFolderIcon, svg.closedFolderIcon, svg.fileIcon, .fileTreeFileAction svg,
 	opacity:0.8;
 	cursor:pointer;
 }
-.fileTreeFileAction.revertGitFile:disabled{
+.fileTreeFileAction.uncommittedFileAction:disabled{
 	opacity:0.3;
 	cursor:default;
 }
-.fileTreeFileAction.revertGitFile:focus-visible{
+.fileTreeFileAction.uncommittedFileAction:focus-visible{
 	outline:1px solid var(--vscode-focusBorder);
 	outline-offset:2px;
 }
-.revertGitFile svg{
+.uncommittedFileAction svg{
 	left:0;
+	width:13px;
 }
 .fileTreeFileAction.copyGitFile svg{
 	top:3px;

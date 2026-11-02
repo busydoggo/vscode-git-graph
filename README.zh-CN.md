@@ -23,6 +23,7 @@
         * 将提交哈希，以及分支、储藏和标签名称复制到剪贴板。
     * 点击提交，查看提交详情和文件更改。在提交详情视图中，你可以：
         * 点击文件更改，在 Visual Studio Code 中查看差异。
+        * 点击详情工具栏的 **View All Changes in One Tab（在同一标签页浏览全部改动）**，在 VS Code 原生多文件 Diff 编辑器中连续浏览所有改动，支持单个文件以及全部文件的折叠和展开。编辑器右上角的“展开全部改动”按钮在只折叠部分文件时也可使用，一次展开所有文件。编辑器顶部标签栏右上角的“刷新全部改动”按钮会重新加载当前比较，并更新改动文件列表。每个文件标题栏可“复制完整文件路径”；“转到文件”会打开可编辑的工作区文件，并保留当前光标位置。每个文件标题栏右上角另有开关，用于展开或收起该文件的全部未改动区间，始终保留所有改动可见。也适用于未提交改动、提交比较和储藏。工作区文件保留编辑能力，并通过已安装的语言插件支持转到定义、查找所有引用；历史版本为只读快照，语言导航取决于语言插件的支持。此功能需要支持原生多文件 Diff 编辑器的 VS Code 版本。
         * 打开受该提交影响的文件的当前版本。
         * 将受该提交影响的文件路径复制到剪贴板。
         * 点击提交正文中的 HTTP/HTTPS 链接，在默认浏览器中打开。
@@ -204,6 +205,9 @@ code --install-extension ./vs-git-graph-1.31.1.vsix --force
 ```
 
 版本号变化时请替换文件名。安装完成后，在 Visual Studio Code 中执行 **Developer: Reload Window** 重新加载窗口。也可以在命令面板中执行 **Extensions: Install from VSIX...**，选择生成的文件完成安装。
+
+
+逐文件标题栏开关使用实验接口 `contribMultiDiffEditorMenus`。在支持此接口的 VS Code 版本中，执行 **Preferences: Configure Runtime Arguments（首选项：配置运行时参数）**，在 `argv.json` 中加入 `"enable-proposed-api": ["busydog.vs-git-graph"]`（保留数组中已有的插件 ID），完全退出并重新启动 VS Code，再重新打开“在同一标签页浏览全部改动”。仅重新加载窗口不会应用运行时参数的变化。此实验构建适合通过本地 VSIX 安装；启用实验接口后，无法通过常规流程发布到 Marketplace。参见 [Using Proposed API](https://code.visualstudio.com/api/advanced-topics/using-proposed-api)。
 
 ## 更新日志
 

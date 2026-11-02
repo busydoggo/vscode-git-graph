@@ -130,8 +130,8 @@ export class Uri implements vscode.Uri {
 	}
 
 	public static parse(path: string) {
-		const comps = path.match(/([a-z]+):\/\/([^?#]+)(\?([^#]+)|())(#(.+)|())/)!;
-		return new Uri(comps[1], '', comps[2], comps[4], comps[6]);
+		const comps = path.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):(?:\/\/)?([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/)!;
+		return new Uri(comps[1], '', comps[2], comps[3], comps[4]);
 	}
 }
 
@@ -158,6 +158,7 @@ export enum ViewColumn {
 
 export const window = {
 	activeTextEditor: undefined as any,
+	onDidChangeActiveTextEditor: jest.fn((_: () => void) => ({ dispose: jest.fn() })),
 	createOutputChannel: jest.fn(() => mocks.outputChannel),
 	createStatusBarItem: jest.fn(() => mocks.statusBarItem),
 	createWebviewPanel: jest.fn(createWebviewPanel),

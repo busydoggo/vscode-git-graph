@@ -13,6 +13,7 @@ import { DataSource } from '../src/dataSource';
 import { ExtensionState } from '../src/extensionState';
 import { GitGraphView, standardiseCspSource } from '../src/gitGraphView';
 import { Logger } from '../src/logger';
+import * as multiDiff from '../src/multiDiff';
 import { RepoChangeEvent, RepoManager } from '../src/repoManager';
 import { CodeReview, CommitOrdering, GitCommitStash, GitConfigLocation, GitFileStatus, GitGraphViewGlobalState, GitGraphViewWorkspaceState, GitPushBranchMode, GitResetMode, MergeActionOn, PullRequestConfig, PullRequestProvider, RebaseActionOn, RequestMessage, ResponseMessage, TagType } from '../src/types';
 import * as utils from '../src/utils';
@@ -1012,6 +1013,15 @@ describe('GitGraphView', () => {
 						}
 					]);
 				});
+			});
+		});
+
+		it.each([null, 'File is no longer untracked'])('Deletes one untracked file and reports the result (%s)', async error => {
+			const action = jest.spyOn(dataSource, 'deleteUntrackedFile').mockResolvedValueOnce(error);
+			onDidReceiveMessage({ command: 'deleteUntrackedFile', repo: '/path/to/repo', filePath: 'dir/[new].txt' });
+			await waitForExpect(() => {
+				expect(action).toHaveBeenCalledWith('/path/to/repo', 'dir/[new].txt');
+				expect(messages).toStrictEqual([{ command: 'deleteUntrackedFile', error }]);
 			});
 		});
 
@@ -3267,6 +3277,19 @@ describe('GitGraphView', () => {
 			});
 		});
 
+		it.each(['stageFiles', 'unstageFiles'] as const)('Forwards %s requests and returns success or error', async command => {
+			const action = jest.spyOn(dataSource, command);
+			const filePaths = ['dir/[notes].txt'];
+			for (const error of [null, 'Unable to update index']) {
+				action.mockResolvedValueOnce(error);
+				onDidReceiveMessage({ command, repo: '/path/to/repo', filePaths });
+				await waitForExpect(() => {
+					expect(action).toHaveBeenLastCalledWith('/path/to/repo', filePaths);
+					expect(messages[messages.length - 1]).toStrictEqual({ command, error });
+				});
+			}
+		});
+
 		describe('resetToCommit', () => {
 			it('Should reset the current branch to a commit', async () => {
 				// Setup
@@ -3526,6 +3549,16 @@ describe('GitGraphView', () => {
 						}
 					]);
 				});
+			});
+		});
+
+		it.each([null, 'Unable to open native editor'])('Forwards all file changes to one editor and reports the result (%s)', async error => {
+			const files = [{ type: GitFileStatus.Modified, oldFilePath: 'file.ts', newFilePath: 'file.ts', additions: 1, deletions: 1 }];
+			const action = jest.spyOn(multiDiff, 'viewAllDiffs').mockResolvedValueOnce(error);
+			onDidReceiveMessage({ command: 'viewAllDiffs', repo: '/path/to/repo', fromHash: 'base', toHash: 'commit', files, untrackedFilesHash: null });
+			await waitForExpect(() => {
+				expect(action).toHaveBeenCalledWith('/path/to/repo', 'base', 'commit', files, null);
+				expect(messages).toStrictEqual([{ command: 'viewAllDiffs', error }]);
 			});
 		});
 

@@ -42,7 +42,8 @@ class GitGraphView {
 	private renderedGitBranchHead: string | null = null;
 	private readonly tableRenderer = new CommitTableRenderer();
 	private copyCommitDiffInProgress: boolean = false;
-	private revertFileInProgress: boolean = false;
+	private viewAllDiffsInProgress: boolean = false;
+	private fileActionInProgress: boolean = false;
 	private commitDetailsRenderState: { element: HTMLElement, controls: string } | null = null;
 	private branchLabelLayouts = new WeakMap<HTMLElement, { width: number, content: string }>();
 
@@ -2803,6 +2804,7 @@ class GitGraphView {
 			html += '</div><div id="cdvFiles">' + generateFileViewHtml(expandedCommit.fileTree!, expandedCommit.fileChanges!, expandedCommit.lastViewedFile, expandedCommit.contextMenuOpen.fileView, this.getFileViewType(), commitOrder.to === UNCOMMITTED, expandedCommit.commitHash === UNCOMMITTED && expandedCommit.compareWithHash === null) + '</div><div id="cdvDivider"></div>';
 		}
 		html += '</div><div id="cdvControls"><div id="cdvClose" class="cdvControlBtn" title="Close">' + SVG_ICONS.close + '</div>' +
+			(!expandedCommit.loading ? '<button id="cdvViewAllDiffs" type="button" class="cdvControlBtn" title="View All Changes in One Tab" aria-label="View All Changes in One Tab">' + SVG_ICONS.multiDiff + '</button>' : '') +
 			(!expandedCommit.loading ? '<button id="cdvCopyDiff" type="button" class="cdvControlBtn" aria-label="Copy diff to clipboard">' + SVG_ICONS.copy + '</button>' : '') +
 			(codeReviewPossible ? '<div id="cdvCodeReview" class="cdvControlBtn">' + SVG_ICONS.review + '</div>' : '') +
 			(!expandedCommit.loading ? '<div id="cdvFileViewTypeTree" class="cdvControlBtn cdvFileViewTypeBtn" title="File Tree View">' + SVG_ICONS.fileTree + '</div><div id="cdvFileViewTypeList" class="cdvControlBtn cdvFileViewTypeBtn" title="File List View">' + SVG_ICONS.fileList + '</div>' : '') +
@@ -2829,6 +2831,7 @@ class GitGraphView {
 			this.renderCdvExternalDiffBtn();
 			this.renderCodeReviewBtn();
 			this.updateCopyCommitDiffButton();
+			this.updateViewAllDiffsButton();
 			return;
 		}
 		this.commitDetailsRenderState = { element: elem, controls };
@@ -2871,6 +2874,8 @@ class GitGraphView {
 		});
 
 		if (!expandedCommit.loading) {
+			document.getElementById('cdvViewAllDiffs')!.addEventListener('click', () => this.viewExpandedCommitDiffs());
+			this.updateViewAllDiffsButton();
 			document.getElementById('cdvCopyDiff')!.addEventListener('click', () => this.copyExpandedCommitDiff());
 			this.updateCopyCommitDiffButton();
 			this.makeCdvFileViewInteractive();
@@ -2946,14 +2951,41 @@ class GitGraphView {
 		}
 	}
 
-	private copyExpandedCommitDiff() {
+	private getExpandedCommitDiffRange() {
 		const expandedCommit = this.expandedCommit;
-		if (expandedCommit === null || expandedCommit.loading || this.copyCommitDiffInProgress) return;
+		if (expandedCommit === null || expandedCommit.loading) return null;
 		const commit = this.commits[this.commitLookup[expandedCommit.commitHash]];
-		if (!commit) return;
-		const order = expandedCommit.compareWithHash !== null
-			? this.getCommitOrder(expandedCommit.commitHash, expandedCommit.compareWithHash)
-			: { from: commit.hash === UNCOMMITTED ? 'HEAD' : commit.stash !== null ? commit.stash.baseHash : expandedCommit.commitDetails!.parents[0] || null, to: commit.hash };
+		if (!commit) return null;
+		return expandedCommit.compareWithHash !== null
+			? { ...this.getCommitOrder(expandedCommit.commitHash, expandedCommit.compareWithHash), untrackedFilesHash: null }
+			: { from: commit.hash === UNCOMMITTED ? 'HEAD' : commit.stash !== null ? commit.stash.baseHash : expandedCommit.commitDetails!.parents[0] || null, to: commit.hash, untrackedFilesHash: commit.stash !== null ? commit.stash.untrackedFilesHash : null };
+	}
+
+	private viewExpandedCommitDiffs() {
+		const expandedCommit = this.expandedCommit, order = this.getExpandedCommitDiffRange();
+		if (expandedCommit === null || expandedCommit.fileChanges === null || expandedCommit.fileChanges.length === 0 || order === null || this.viewAllDiffsInProgress) return;
+		this.viewAllDiffsInProgress = true;
+		this.updateViewAllDiffsButton();
+		sendMessage({ command: 'viewAllDiffs', repo: this.currentRepo, fromHash: order.from, toHash: order.to, files: expandedCommit.fileChanges, untrackedFilesHash: order.untrackedFilesHash });
+	}
+
+	public finishViewAllDiffs() {
+		this.viewAllDiffsInProgress = false;
+		this.updateViewAllDiffsButton();
+	}
+
+	private updateViewAllDiffsButton() {
+		const button = <HTMLButtonElement | null>document.getElementById('cdvViewAllDiffs');
+		if (button === null) return;
+		const disabled = this.viewAllDiffsInProgress || !this.expandedCommit?.fileChanges?.length;
+		if (button.disabled !== disabled) button.disabled = disabled;
+		const title = this.viewAllDiffsInProgress ? 'Opening All Changes...' : 'View All Changes in One Tab';
+		if (button.title !== title) button.title = title;
+	}
+
+	private copyExpandedCommitDiff() {
+		const order = this.getExpandedCommitDiffRange();
+		if (order === null || this.copyCommitDiffInProgress) return;
 		this.copyCommitDiffInProgress = true;
 		this.updateCopyCommitDiffButton();
 		sendMessage({ command: 'copyCommitDiff', repo: this.currentRepo, fromHash: order.from, toHash: order.to });
@@ -3150,23 +3182,46 @@ class GitGraphView {
 		this.renderCdvFileViewTypeBtns();
 	}
 
-	public finishResetFileToRevision() {
-		this.revertFileInProgress = false;
-		this.updateRevertFileButtons();
+	public finishFileAction() {
+		this.fileActionInProgress = false;
+		this.updateFileActionButtons();
 	}
 
-	private updateRevertFileButtons() {
-		document.querySelectorAll<HTMLButtonElement>('.revertGitFile').forEach(button => {
-			button.disabled = this.revertFileInProgress || button.dataset.revertSupported !== 'true';
+	private updateFileActionButtons() {
+		document.querySelectorAll<HTMLButtonElement>('.uncommittedFileAction').forEach(button => {
+			button.disabled = this.fileActionInProgress || button.dataset.actionSupported !== 'true';
 		});
 	}
 
 	private revertFileToHead(file: GG.GitFileChange) {
 		const expandedCommit = this.expandedCommit;
-		if (expandedCommit === null || expandedCommit.commitHash !== UNCOMMITTED || expandedCommit.compareWithHash !== null || this.revertFileInProgress || !canRevertFileToHead(file)) return;
-		this.revertFileInProgress = true;
-		this.updateRevertFileButtons();
+		if (expandedCommit === null || expandedCommit.commitHash !== UNCOMMITTED || expandedCommit.compareWithHash !== null || this.fileActionInProgress || !canRevertFileToHead(file)) return;
+		this.fileActionInProgress = true;
+		this.updateFileActionButtons();
 		sendMessage({ command: 'resetFileToRevision', repo: this.currentRepo, commitHash: 'HEAD', filePath: file.newFilePath });
+	}
+
+	private deleteUntrackedFile(file: GG.GitFileChange, fileElem: HTMLElement) {
+		const expandedCommit = this.expandedCommit;
+		if (expandedCommit === null || expandedCommit.commitHash !== UNCOMMITTED || expandedCommit.compareWithHash !== null || file.type !== GG.GitFileStatus.Untracked || this.fileActionInProgress || dialog.isOpen()) return;
+		const repo = this.currentRepo, filePath = file.newFilePath;
+		dialog.showConfirmation('Are you sure you want to permanently delete the untracked file <b><i>' + escapeHtml(filePath) + '</i></b>? This file is not stored in Git.', 'Yes, delete file', () => {
+			const current = this.expandedCommit, currentFile = current?.fileChanges?.find(file => file.newFilePath === filePath);
+			if (this.currentRepo !== repo || current === null || current.commitHash !== UNCOMMITTED || current.compareWithHash !== null || currentFile?.type !== GG.GitFileStatus.Untracked || this.fileActionInProgress) return;
+			this.fileActionInProgress = true;
+			this.updateFileActionButtons();
+			sendMessage({ command: 'deleteUntrackedFile', repo, filePath });
+		}, { type: TargetType.CommitDetailsView, elem: fileElem, hash: UNCOMMITTED });
+	}
+
+	private changeFileStaging(file: GG.GitFileChange, stage: boolean) {
+		const expandedCommit = this.expandedCommit;
+		if (expandedCommit === null || expandedCommit.commitHash !== UNCOMMITTED || expandedCommit.compareWithHash !== null || this.fileActionInProgress || typeof file.staging === 'undefined') return;
+		const filePaths = stage ? file.staging.stagePaths : file.staging.unstagePaths;
+		if (filePaths.length === 0) return;
+		this.fileActionInProgress = true;
+		this.updateFileActionButtons();
+		sendMessage({ command: stage ? 'stageFiles' : 'unstageFiles', repo: this.currentRepo, filePaths });
 	}
 
 	private makeCdvFileViewInteractive() {
@@ -3324,7 +3379,22 @@ class GitGraphView {
 			if (expandedCommit === null || expandedCommit.fileChanges === null || e.target === null) return;
 			this.revertFileToHead(getFileOfFileElem(expandedCommit.fileChanges, getFileElemOfEventTarget(e.target)));
 		});
-		this.updateRevertFileButtons();
+		addListenerToClass('deleteUntrackedGitFile', 'click', (e) => {
+			handledEvent(e);
+			const expandedCommit = this.expandedCommit;
+			if (expandedCommit === null || expandedCommit.fileChanges === null || e.target === null) return;
+			const fileElem = getFileElemOfEventTarget(e.target);
+			this.deleteUntrackedFile(getFileOfFileElem(expandedCommit.fileChanges, fileElem), fileElem);
+		});
+		['stageGitFile', 'unstageGitFile'].forEach(action => {
+			addListenerToClass(action, 'click', (e) => {
+				handledEvent(e);
+				const expandedCommit = this.expandedCommit;
+				if (expandedCommit === null || expandedCommit.fileChanges === null || e.target === null) return;
+				this.changeFileStaging(getFileOfFileElem(expandedCommit.fileChanges, getFileElemOfEventTarget(e.target)), action === 'stageGitFile');
+			});
+		});
+		this.updateFileActionButtons();
 
 		addListenerToClass('fileTreeFileRecord', 'contextmenu', (e: Event) => {
 			handledEvent(e);
@@ -3527,6 +3597,10 @@ window.addEventListener('load', () => {
 			case 'cherrypickCommit':
 				refreshAndDisplayErrors(msg.errors, 'Unable to Cherry Pick Commit');
 				break;
+			case 'deleteUntrackedFile':
+				gitGraph.finishFileAction();
+				refreshOrDisplayError(msg.error, 'Unable to Delete Untracked File');
+				break;
 			case 'cleanUntrackedFiles':
 				refreshOrDisplayError(msg.error, 'Unable to Clean Untracked Files');
 				break;
@@ -3686,8 +3760,16 @@ window.addEventListener('load', () => {
 				refreshOrDisplayError(msg.error, 'Unable to Rename Branch');
 				break;
 			case 'resetFileToRevision':
-				gitGraph.finishResetFileToRevision();
+				gitGraph.finishFileAction();
 				refreshOrDisplayError(msg.error, 'Unable to Reset File to Revision');
+				break;
+			case 'stageFiles':
+				gitGraph.finishFileAction();
+				refreshOrDisplayError(msg.error, 'Unable to Stage File');
+				break;
+			case 'unstageFiles':
+				gitGraph.finishFileAction();
+				refreshOrDisplayError(msg.error, 'Unable to Unstage File');
 				break;
 			case 'resetToCommit':
 				refreshOrDisplayError(msg.error, 'Unable to Reset to Commit');
@@ -3719,6 +3801,10 @@ window.addEventListener('load', () => {
 				if (msg.error !== null) {
 					dialog.showError('Unable to update Code Review', msg.error, null, null);
 				}
+				break;
+			case 'viewAllDiffs':
+				gitGraph.finishViewAllDiffs();
+				finishOrDisplayError(msg.error, 'Unable to View All Changes');
 				break;
 			case 'viewDiff':
 				finishOrDisplayError(msg.error, 'Unable to View Diff');
@@ -3845,13 +3931,13 @@ window.addEventListener('load', () => {
 
 /* File Tree Methods (for the Commit Details & Comparison Views) */
 
-function generateFileViewHtml(folder: FileTreeFolder, gitFiles: ReadonlyArray<GG.GitFileChange>, lastViewedFile: string | null, fileContextMenuOpen: number, type: GG.FileViewType, isUncommitted: boolean, showRevert: boolean = false) {
+function generateFileViewHtml(folder: FileTreeFolder, gitFiles: ReadonlyArray<GG.GitFileChange>, lastViewedFile: string | null, fileContextMenuOpen: number, type: GG.FileViewType, isUncommitted: boolean, showUncommittedActions: boolean = false) {
 	return type === GG.FileViewType.List
-		? generateFileListHtml(folder, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, showRevert)
-		: generateFileTreeHtml(folder, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, true, showRevert);
+		? generateFileListHtml(folder, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, showUncommittedActions)
+		: generateFileTreeHtml(folder, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, true, showUncommittedActions);
 }
 
-function generateFileTreeHtml(folder: FileTreeFolder, gitFiles: ReadonlyArray<GG.GitFileChange>, lastViewedFile: string | null, fileContextMenuOpen: number, isUncommitted: boolean, topLevelFolder: boolean, showRevert: boolean): string {
+function generateFileTreeHtml(folder: FileTreeFolder, gitFiles: ReadonlyArray<GG.GitFileChange>, lastViewedFile: string | null, fileContextMenuOpen: number, isUncommitted: boolean, topLevelFolder: boolean, showUncommittedActions: boolean): string {
 	const curFolderInfo = topLevelFolder || !initialState.config.commitDetailsView.fileTreeCompactFolders
 		? { folder: folder, name: folder.name, pathSeg: folder.name }
 		: getCurrentFolderInfo(folder, folder.name, folder.name);
@@ -3859,8 +3945,8 @@ function generateFileTreeHtml(folder: FileTreeFolder, gitFiles: ReadonlyArray<GG
 	const children = sortFolderKeys(curFolderInfo.folder).map((key) => {
 		const cur = curFolderInfo.folder.contents[key];
 		return cur.type === 'folder'
-			? generateFileTreeHtml(cur, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, false, showRevert)
-			: generateFileTreeLeafHtml(cur.name, cur, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, showRevert);
+			? generateFileTreeHtml(cur, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, false, showUncommittedActions)
+			: generateFileTreeLeafHtml(cur.name, cur, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, showUncommittedActions);
 	});
 
 	return (topLevelFolder ? '' : '<li' + (curFolderInfo.folder.open ? '' : ' class="closed"') + ' data-pathseg="' + encodeURIComponent(curFolderInfo.pathSeg) + '"><span class="fileTreeFolder' + (curFolderInfo.folder.reviewed ? '' : ' pendingReview') + '" title="./' + escapeHtml(curFolderInfo.folder.folderPath) + '" data-folderpath="' + encodeURIComponent(curFolderInfo.folder.folderPath) + '"><span class="fileTreeFolderIcon">' + (curFolderInfo.folder.open ? SVG_ICONS.openFolder : SVG_ICONS.closedFolder) + '</span><span class="gitFolderName">' + escapeHtml(curFolderInfo.name) + '</span></span>') +
@@ -3876,7 +3962,7 @@ function getCurrentFolderInfo(folder: FileTreeFolder, name: string, pathSeg: str
 		: { folder: folder, name: name, pathSeg: pathSeg };
 }
 
-function generateFileListHtml(folder: FileTreeFolder, gitFiles: ReadonlyArray<GG.GitFileChange>, lastViewedFile: string | null, fileContextMenuOpen: number, isUncommitted: boolean, showRevert: boolean) {
+function generateFileListHtml(folder: FileTreeFolder, gitFiles: ReadonlyArray<GG.GitFileChange>, lastViewedFile: string | null, fileContextMenuOpen: number, isUncommitted: boolean, showUncommittedActions: boolean) {
 	const sortLeaves = (folder: FileTreeFolder, folderPath: string) => {
 		let keys = sortFolderKeys(folder);
 		let items: { relPath: string, leaf: FileTreeLeaf }[] = [];
@@ -3894,7 +3980,7 @@ function generateFileListHtml(folder: FileTreeFolder, gitFiles: ReadonlyArray<GG
 	let sortedLeaves = sortLeaves(folder, '');
 	let html = '';
 	for (let i = 0; i < sortedLeaves.length; i++) {
-		html += generateFileTreeLeafHtml(sortedLeaves[i].relPath, sortedLeaves[i].leaf, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, showRevert);
+		html += generateFileTreeLeafHtml(sortedLeaves[i].relPath, sortedLeaves[i].leaf, gitFiles, lastViewedFile, fileContextMenuOpen, isUncommitted, showUncommittedActions);
 	}
 	return '<ul class="fileTreeFolderContents">' + html + '</ul>';
 }
@@ -3903,14 +3989,28 @@ function canRevertFileToHead(file: GG.GitFileChange) {
 	return file.type === GG.GitFileStatus.Modified || file.type === GG.GitFileStatus.Deleted;
 }
 
-function generateFileTreeLeafHtml(name: string, leaf: FileTreeLeaf, gitFiles: ReadonlyArray<GG.GitFileChange>, lastViewedFile: string | null, fileContextMenuOpen: number, isUncommitted: boolean, showRevert: boolean) {
+function generateFileActionButton(action: string, icon: string, title: string, supported: boolean) {
+	return '<button type="button" class="' + action + ' fileTreeFileAction uncommittedFileAction" data-action-supported="' + supported + '" title="' + title + '" aria-label="' + title + '"' + (supported ? '' : ' disabled') + '>' + icon + '</button>';
+}
+
+function generateUncommittedFileActions(file: GG.GitFileChange) {
+	return '<span class="fileTreeUncommittedActions">' +
+		generateFileActionButton('stageGitFile', SVG_ICONS.plus, 'Stage Changes', typeof file.staging !== 'undefined' && file.staging.stagePaths.length > 0) +
+		generateFileActionButton('unstageGitFile', SVG_ICONS.minus, 'Unstage Changes', typeof file.staging !== 'undefined' && file.staging.unstagePaths.length > 0) +
+		(file.type === GG.GitFileStatus.Untracked
+			? generateFileActionButton('deleteUntrackedGitFile', SVG_ICONS.trash, 'Delete Untracked File', true)
+			: generateFileActionButton('revertGitFile', SVG_ICONS.revert, canRevertFileToHead(file) ? 'Discard changes and restore this file from HEAD' : 'This path has no restorable version in HEAD', canRevertFileToHead(file))) +
+		'</span>';
+}
+
+function generateFileTreeLeafHtml(name: string, leaf: FileTreeLeaf, gitFiles: ReadonlyArray<GG.GitFileChange>, lastViewedFile: string | null, fileContextMenuOpen: number, isUncommitted: boolean, showUncommittedActions: boolean) {
 	let encodedName = encodeURIComponent(name), escapedName = escapeHtml(name);
 	if (leaf.type === 'file') {
 		const fileTreeFile = gitFiles[leaf.index];
 		const textFile = fileTreeFile.additions !== null && fileTreeFile.deletions !== null;
 		const diffPossible = fileTreeFile.type === GG.GitFileStatus.Untracked || textFile;
 		const changeTypeMessage = GIT_FILE_CHANGE_TYPES[fileTreeFile.type] + (fileTreeFile.type === GG.GitFileStatus.Renamed ? ' (' + escapeHtml(fileTreeFile.oldFilePath) + ' → ' + escapeHtml(fileTreeFile.newFilePath) + ')' : '');
-		return '<li data-pathseg="' + encodedName + '"><span class="fileTreeFileRecord' + (leaf.index === fileContextMenuOpen ? ' ' + CLASS_CONTEXT_MENU_ACTIVE : '') + '" data-index="' + leaf.index + '"><span class="fileTreeFile' + (diffPossible ? ' gitDiffPossible' : '') + (leaf.reviewed ? '' : ' ' + CLASS_PENDING_REVIEW) + '" title="' + (diffPossible ? 'Click to View Diff' : 'Unable to View Diff' + (fileTreeFile.type !== GG.GitFileStatus.Deleted ? ' (this is a binary file)' : '')) + ' • ' + changeTypeMessage + '"><span class="fileTreeFileIcon">' + SVG_ICONS.file + '</span><span class="gitFileName ' + fileTreeFile.type + '">' + escapedName + '</span></span>' +
+		return '<li data-pathseg="' + encodedName + '"><span class="fileTreeFileRecord' + (showUncommittedActions ? ' uncommittedFileRecord' : '') + (leaf.index === fileContextMenuOpen ? ' ' + CLASS_CONTEXT_MENU_ACTIVE : '') + '" data-index="' + leaf.index + '"><span class="fileTreeFile' + (diffPossible ? ' gitDiffPossible' : '') + (leaf.reviewed ? '' : ' ' + CLASS_PENDING_REVIEW) + '" title="' + (diffPossible ? 'Click to View Diff' : 'Unable to View Diff' + (fileTreeFile.type !== GG.GitFileStatus.Deleted ? ' (this is a binary file)' : '')) + ' • ' + changeTypeMessage + '"><span class="fileTreeFileIcon">' + SVG_ICONS.file + '</span><span class="gitFileName ' + fileTreeFile.type + '">' + escapedName + '</span></span>' +
 			(initialState.config.enhancedAccessibility ? '<span class="fileTreeFileType" title="' + changeTypeMessage + '">' + fileTreeFile.type + '</span>' : '') +
 			(fileTreeFile.type !== GG.GitFileStatus.Added && fileTreeFile.type !== GG.GitFileStatus.Untracked && fileTreeFile.type !== GG.GitFileStatus.Deleted && textFile ? '<span class="fileTreeFileAddDel">(<span class="fileTreeFileAdd" title="' + fileTreeFile.additions + ' addition' + (fileTreeFile.additions !== 1 ? 's' : '') + '">+' + fileTreeFile.additions + '</span>|<span class="fileTreeFileDel" title="' + fileTreeFile.deletions + ' deletion' + (fileTreeFile.deletions !== 1 ? 's' : '') + '">-' + fileTreeFile.deletions + '</span>)</span>' : '') +
 			(fileTreeFile.newFilePath === lastViewedFile ? '<span id="cdvLastFileViewed" title="Last File Viewed">' + SVG_ICONS.eyeOpen + '</span>' : '') +
@@ -3919,7 +4019,7 @@ function generateFileTreeLeafHtml(name: string, leaf: FileTreeLeaf, gitFiles: Re
 				? (diffPossible && !isUncommitted ? '<span class="viewGitFileAtRevision fileTreeFileAction" title="View File at this Revision">' + SVG_ICONS.commit + '</span>' : '') +
 				'<span class="openGitFile fileTreeFileAction" title="Open File">' + SVG_ICONS.openFile + '</span>'
 				: ''
-			) + (showRevert ? '<button type="button" class="revertGitFile fileTreeFileAction" data-revert-supported="' + canRevertFileToHead(fileTreeFile) + '" title="' + (canRevertFileToHead(fileTreeFile) ? 'Discard changes and restore this file from HEAD' : 'This path has no restorable version in HEAD') + '" aria-label="Restore file from HEAD"' + (canRevertFileToHead(fileTreeFile) ? '' : ' disabled') + '>' + SVG_ICONS.revert + '</button>' : '') + '</span></li>';
+			) + (showUncommittedActions ? generateUncommittedFileActions(fileTreeFile) : '') + '</span></li>';
 	} else {
 		return '<li data-pathseg="' + encodedName + '"><span class="fileTreeRepo" data-path="' + encodeURIComponent(leaf.path) + '" title="Click to View Repository"><span class="fileTreeRepoIcon">' + SVG_ICONS.closedFolder + '</span>' + escapedName + '</span></li>';
 	}
@@ -4133,7 +4233,11 @@ function haveFilesChanged(oldFiles: ReadonlyArray<GG.GitFileChange> | null, newF
 	} else if (oldFiles === null && newFiles === null) {
 		return false;
 	} else {
-		return !arraysEqual(oldFiles!, newFiles!, (a, b) => a.additions === b.additions && a.deletions === b.deletions && a.newFilePath === b.newFilePath && a.oldFilePath === b.oldFilePath && a.type === b.type);
+		return !arraysEqual(oldFiles!, newFiles!, (a, b) =>
+			a.additions === b.additions && a.deletions === b.deletions && a.newFilePath === b.newFilePath && a.oldFilePath === b.oldFilePath && a.type === b.type &&
+			arraysEqual(a.staging?.stagePaths || [], b.staging?.stagePaths || [], (a, b) => a === b) &&
+			arraysEqual(a.staging?.unstagePaths || [], b.staging?.unstagePaths || [], (a, b) => a === b)
+		);
 	}
 }
 

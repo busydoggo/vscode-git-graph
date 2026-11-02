@@ -1064,6 +1064,16 @@ describe('openFile', () => {
 		expect(mockedFileSystemModule.access).toHaveBeenNthCalledWith(1, path.join('/path/to/repo', 'file.txt'), fs.constants.R_OK, expect.anything());
 	});
 
+	it('Reveals the cursor position in a normal file URI after resolving a historical rename', async () => {
+		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
+		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(null));
+		jest.spyOn(dataSource, 'getNewPathOfRenamedFile').mockResolvedValueOnce('renamed-new.txt');
+		vscode.commands.executeCommand.mockResolvedValueOnce(null);
+		const selection = { start: { line: 12, character: 6 }, end: { line: 12, character: 6 } } as any;
+		expect(await openFile('/path/to/repo', 'renamed-old.txt', 'revision', dataSource, vscode.ViewColumn.Active, selection)).toBeNull();
+		expect(vscode.commands.executeCommand).toHaveBeenCalledWith('vscode.open', vscode.Uri.file('/path/to/repo/renamed-new.txt'), { preview: true, viewColumn: vscode.ViewColumn.Active, selection });
+	});
+
 	it('Should open a renamed file in vscode', async () => {
 		// Setup
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));

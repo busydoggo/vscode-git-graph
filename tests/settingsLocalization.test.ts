@@ -25,7 +25,7 @@ function collect(value: any, texts: string[] = []) {
 
 describe('Chinese settings localization', () => {
 	it('Provides English fallback and Chinese translations for every settings text', () => {
-		const texts = collect(manifest.contributes.configuration);
+		const texts = collect(manifest.contributes.configuration).concat(collect(manifest.contributes.commands).filter(value => reference.test(value)));
 		expect(texts.length).toBeGreaterThan(300);
 		const used = new Set<string>();
 		for (const value of texts) {

@@ -5,6 +5,7 @@ import { getConfig } from './config';
 import { DataSource, GitCommitDetailsData, GitConfigKey } from './dataSource';
 import { ExtensionState } from './extensionState';
 import { Logger } from './logger';
+import { viewAllDiffs } from './multiDiff';
 import { RepoFileWatcher } from './repoFileWatcher';
 import { RepoManager } from './repoManager';
 import { ErrorInfo, GitConfigLocation, GitGraphViewInitialState, GitPushBranchMode, GitRepoSet, LoadGitGraphViewTo, RequestMessage, RequestToolbarState, ResponseMessage, TabIconColourTheme, ToolbarAction } from './types';
@@ -263,6 +264,12 @@ export class GitGraphView extends Disposable {
 				this.sendMessage({
 					command: 'cleanUntrackedFiles',
 					error: await this.dataSource.cleanUntrackedFiles(msg.repo, msg.directories)
+				});
+				break;
+			case 'deleteUntrackedFile':
+				this.sendMessage({
+					command: 'deleteUntrackedFile',
+					error: await this.dataSource.deleteUntrackedFile(msg.repo, msg.filePath)
 				});
 				break;
 			case 'commitDetails':
@@ -594,6 +601,18 @@ export class GitGraphView extends Disposable {
 					error: await this.dataSource.resetFileToRevision(msg.repo, msg.commitHash, msg.filePath)
 				});
 				break;
+			case 'stageFiles':
+				this.sendMessage({
+					command: 'stageFiles',
+					error: await this.dataSource.stageFiles(msg.repo, msg.filePaths)
+				});
+				break;
+			case 'unstageFiles':
+				this.sendMessage({
+					command: 'unstageFiles',
+					error: await this.dataSource.unstageFiles(msg.repo, msg.filePaths)
+				});
+				break;
 			case 'resetToCommit':
 				this.sendMessage({
 					command: 'resetToCommit',
@@ -645,6 +664,12 @@ export class GitGraphView extends Disposable {
 				this.sendMessage({
 					command: 'updateCodeReview',
 					error: await this.extensionState.updateCodeReview(msg.repo, msg.id, msg.remainingFiles, msg.lastViewedFile)
+				});
+				break;
+			case 'viewAllDiffs':
+				this.sendMessage({
+					command: 'viewAllDiffs',
+					error: await viewAllDiffs(msg.repo, msg.fromHash, msg.toHash, msg.files, msg.untrackedFilesHash)
 				});
 				break;
 			case 'viewDiff':

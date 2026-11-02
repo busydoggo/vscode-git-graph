@@ -1,7 +1,7 @@
 {
 	"name": "vs-git-graph",
 	"displayName": "VS Git Graph",
-	"version": "1.31.3",
+	"version": "1.31.5",
 	"publisher": "busydog",
 	"author": {
 		"name": "Michael Hutchison",
@@ -32,6 +32,9 @@
 	"engines": {
 		"vscode": "^1.38.0"
 	},
+	"enabledApiProposals": [
+		"contribMultiDiffEditorMenus"
+	],
 	"extensionKind": [
 		"workspace"
 	],
@@ -125,6 +128,41 @@
 				"title": "Refresh",
 				"icon": "$(refresh)",
 				"enablement": "activeWebviewPanelId == vs-git-graph && vs-git-graph:toolbarReady && !vs-git-graph:refreshing"
+			},
+			{
+				"category": "Git Graph",
+				"command": "vs-git-graph.copyDiffFilePath",
+				"title": "%command.copyDiffFilePath.title%",
+				"icon": "$(copy)",
+				"enablement": "activeEditor == multiDiffEditor"
+			},
+			{
+				"category": "Git Graph",
+				"command": "vs-git-graph.refreshAllDiffs",
+				"title": "%command.refreshAllDiffs.title%",
+				"icon": "$(refresh)",
+				"enablement": "activeEditor == multiDiffEditor && resourceScheme == vs-git-graph-multi-diff"
+			},
+			{
+				"category": "Git Graph",
+				"command": "vs-git-graph.expandAllDiffs",
+				"title": "%command.expandAllDiffs.title%",
+				"icon": "$(expand-all)",
+				"enablement": "activeEditor == multiDiffEditor"
+			},
+			{
+				"category": "Git Graph",
+				"command": "vs-git-graph.showAllUnchangedRegions",
+				"title": "%command.showAllUnchangedRegions.title%",
+				"icon": "$(unfold)",
+				"enablement": "activeEditor == multiDiffEditor"
+			},
+			{
+				"category": "Git Graph",
+				"command": "vs-git-graph.collapseAllUnchangedRegions",
+				"title": "%command.collapseAllUnchangedRegions.title%",
+				"icon": "$(fold)",
+				"enablement": "activeEditor == multiDiffEditor"
 			},
 			{
 				"category": "Git Graph",
@@ -1772,6 +1810,14 @@
 		},
 		"menus": {
 			"commandPalette": [
+				{ "command": "vs-git-graph.copyDiffFilePath", "when": "false" },
+				{ "command": "vs-git-graph.refreshAllDiffs", "when": "false" },
+				{ "command": "vs-git-graph.showAllUnchangedRegions", "when": "false" },
+				{ "command": "vs-git-graph.collapseAllUnchangedRegions", "when": "false" },
+				{
+					"command": "vs-git-graph.expandAllDiffs",
+					"when": "activeEditor == multiDiffEditor"
+				},
 				{
 					"command": "vs-git-graph.openFile",
 					"when": "isInDiffEditor && resourceScheme == vs-git-graph && vs-git-graph:codiconsSupported"
@@ -1793,7 +1839,34 @@
 					"when": "activeWebviewPanelId == vs-git-graph"
 				}
 			],
+			"multiDiffEditor/resource/title": [
+				{
+					"command": "vs-git-graph.copyDiffFilePath",
+					"group": "navigation@2",
+					"when": "resourceScheme == vs-git-graph-multi-diff"
+				},
+				{
+					"command": "vs-git-graph.showAllUnchangedRegions",
+					"group": "navigation@1",
+					"when": "resourceScheme == vs-git-graph-multi-diff && !multiDiffEditorItemAllUnchangedRegionsShown"
+				},
+				{
+					"command": "vs-git-graph.collapseAllUnchangedRegions",
+					"group": "navigation@1",
+					"when": "resourceScheme == vs-git-graph-multi-diff && multiDiffEditorItemAllUnchangedRegionsShown"
+				}
+			],
 			"editor/title": [
+				{
+					"command": "vs-git-graph.refreshAllDiffs",
+					"group": "navigation@100",
+					"when": "activeEditor == multiDiffEditor && resourceScheme == vs-git-graph-multi-diff"
+				},
+				{
+					"command": "vs-git-graph.expandAllDiffs",
+					"group": "navigation@99",
+					"when": "activeEditor == multiDiffEditor && !multiDiffEditorAllCollapsed"
+				},
 				{
 					"command": "vs-git-graph.openFile",
 					"group": "navigation",

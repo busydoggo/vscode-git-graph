@@ -23,6 +23,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * Copy commit hashes, and branch, stash & tag names to the clipboard
     * View commit details and file changes by clicking on a commit. On the Commit Details View you can:
         * View the Visual Studio Code Diff of any file change by clicking on it.
+        * Use **View All Changes in One Tab** in the details toolbar to browse all changed files together in VS Code's native multi-file diff editor, with individual and all-file collapse/expand controls. The top-right **Expand All Diffs** button stays available when only some files are collapsed. The **Refresh All Changes** button in the editor tab toolbar reloads the current comparison and updates its changed-file list. Each file header includes **Copy Full File Path**. **Open File** opens the editable working-tree file at the current cursor position. Each file header also has a toggle that shows or hides all unchanged regions in that file, keeping every change visible. This also supports uncommitted changes, comparisons and stashes. Working-tree files retain editing, Go to Definition and Find All References through the installed language extensions; historical revisions remain read-only and language navigation depends on the language extension. This feature requires a VS Code version with the native multi-file diff editor.
         * Open the current version of any file that was affected in the commit.
         * Copy the path of any file that was affected in the commit to the clipboard.
         * Click on any HTTP/HTTPS url in the commit body to open it in your default web browser.
@@ -203,6 +204,9 @@ code --install-extension ./vs-git-graph-1.31.1.vsix --force
 ```
 
 Replace the filename if the version changes, then run **Developer: Reload Window** in Visual Studio Code. Alternatively, use **Extensions: Install from VSIX...** in the Command Palette and select the generated file.
+
+
+The per-file header toggle uses the experimental `contribMultiDiffEditorMenus` API. To enable it in a VS Code build that supports this proposal, run **Preferences: Configure Runtime Arguments** and add `"enable-proposed-api": ["busydog.vs-git-graph"]` to `argv.json` (preserve any extension IDs already listed). Fully quit and restart VS Code, then open **View All Changes in One Tab** again. Reloading the window alone does not apply runtime argument changes. This experimental build is intended for local VSIX installation; extensions that enable proposed APIs cannot be published to the Marketplace through the normal publishing flow. See [Using Proposed API](https://code.visualstudio.com/api/advanced-topics/using-proposed-api).
 
 ## Release Notes
 
